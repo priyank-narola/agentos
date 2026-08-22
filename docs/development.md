@@ -23,6 +23,24 @@ npm run dev
 
 Copy `.env.example` to a local environment file when overriding defaults. Never commit local `.env` files or credentials.
 
+## Database migration checks
+
+With `DATABASE_URL` set to a PostgreSQL database:
+
+```bash
+cd backend
+alembic upgrade head
+alembic downgrade base
+```
+
+Offline PostgreSQL SQL can be inspected without a server:
+
+```bash
+DATABASE_URL='postgresql+psycopg://user:password@localhost/db' alembic upgrade head --sql
+```
+
+The model tests use isolated SQLite only for ORM relationship and metadata checks. They do not substitute for PostgreSQL migration testing.
+
 ## Phase 1 scope
 
 Included: repository setup, service scaffolding, environment configuration, a dashboard shell, system endpoints, and baseline tests.
