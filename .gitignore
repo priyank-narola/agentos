@@ -1,0 +1,25 @@
+# Dependencies
+node_modules/
+frontend/.next/
+frontend/out/
+backend/.venv/
+backend/venv/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
+# Environment files
+.env
+.env.*
+!.env.example
+frontend/.env.local
+backend/.env
+
+# Build and editor files
+*.log
+*.tsbuildinfo
+.DS_Store
+.idea/
+.vscode/
