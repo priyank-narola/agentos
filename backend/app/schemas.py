@@ -179,6 +179,62 @@ class PolicySchema(DomainSchema):
     updated_at: datetime
 
 
+class PolicyCreate(BaseModel):
+    name: str = Field(min_length=1, max_length=200)
+    description: str | None = None
+    status: PolicyStatus = PolicyStatus.DRAFT
+    version: int = Field(ge=1)
+    priority: int = Field(ge=0)
+
+
+class PolicyRuleCreate(BaseModel):
+    effect: PolicyEffect
+    action: str = Field(min_length=1, max_length=200)
+    resource_type: str = Field(min_length=1, max_length=100)
+    conditions: dict[str, Any] | None = None
+    priority: int = Field(ge=0)
+
+
+class PolicyEvaluationRequest(BaseModel):
+    principal_id: UUID
+    agent_id: UUID
+    tool_id: UUID
+    action_id: UUID
+    resource_id: UUID
+    parameters: dict[str, Any] = Field(default_factory=dict)
+    policy_context: dict[str, Any] = Field(default_factory=dict)
+    evaluated_at: datetime | None = None
+
+
+class EvaluationTraceStep(BaseModel):
+    step: int
+    code: str
+    outcome: str
+    detail: str
+
+
+class MatchedPolicyRule(BaseModel):
+    policy_id: UUID
+    policy_name: str
+    policy_version: int
+    policy_priority: int
+    rule_id: UUID
+    rule_effect: PolicyEffect
+    rule_priority: int
+    conditions: dict[str, Any] | None = None
+
+
+class PolicyEvaluationResult(BaseModel):
+    decision: str
+    reason_code: str
+    reason: str
+    matched_policies: list[MatchedPolicyRule] = Field(default_factory=list)
+    risk_level: RiskClassification | None = None
+    delegation_status: DelegationStatus | None = None
+    approval_required: bool
+    trace: list[EvaluationTraceStep]
+
+
 class ActionRequestSchema(DomainSchema):
     id: UUID
     agent_id: UUID

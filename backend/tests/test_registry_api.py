@@ -34,6 +34,7 @@ def agent_payload(owner_id: str, name: str = "RegistryAgent") -> dict[str, str]:
 
 
 def test_registry_crud_and_lifecycle() -> None:
+    app.dependency_overrides[get_db] = override_db
     principal = client.post("/api/v1/principals", json=principal_payload()).json()
     created = client.post("/api/v1/agents", json=agent_payload(principal["id"])).json()
     assert client.post("/api/v1/agents", json=agent_payload(principal["id"])).status_code == 409
@@ -53,6 +54,7 @@ def test_registry_crud_and_lifecycle() -> None:
 
 
 def test_registry_rejects_unknown_relationships() -> None:
+    app.dependency_overrides[get_db] = override_db
     response = client.post("/api/v1/agents", json=agent_payload(str(uuid4()), "UnknownOwnerAgent"))
     assert response.status_code == 400
     response = client.post("/api/v1/delegations", json={"principal_id": str(uuid4()), "agent_id": str(uuid4()), "scope": "none", "issued_at": "2026-08-22T12:00:00Z"})
