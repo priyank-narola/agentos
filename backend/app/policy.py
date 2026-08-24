@@ -31,6 +31,8 @@ class EvaluationInput:
     parameters: dict[str, Any]
     policy_context: dict[str, Any]
     evaluated_at: datetime
+    risk_score: int | None = None
+    risk_classification: str | None = None
 
 
 class ReasonCode:

@@ -11,6 +11,7 @@ from app.db.models import Action, ActionRequest, Agent, AuditEvent, CapabilitySt
 from app.db.session import get_db
 from app.main import app
 from app.services.gateway import GatewayService
+from app.risk import RiskEngine
 
 engine = create_engine("sqlite://", connect_args={"check_same_thread": False}, poolclass=StaticPool)
 Base.metadata.create_all(engine)
@@ -73,6 +74,7 @@ def test_allow_persists_separate_decision_and_does_not_execute() -> None:
         request = session.get(ActionRequest, UUID(data["action_request_id"]))
         decision = session.scalar(select(Decision).where(Decision.action_request_id == request.id))
         assert request is not None and decision is not None
+        assert decision.risk_score is not None
         assert request.id != decision.action_request_id or request.__tablename__ != decision.__tablename__
     detail = client.get(f"/api/v1/action-requests/{data['action_request_id']}")
     assert detail.status_code == 200
@@ -112,6 +114,8 @@ def test_caller_cannot_submit_decision() -> None:
     ids = fixture_records(); add_policy(ids)
     response = client.post("/api/v1/action-requests", json={**body(ids, "caller-decision"), "decision": "ALLOW"})
     assert response.status_code == 422
+    for field, value in [("risk_score", 0), ("risk_classification", "LOW"), ("risk_factors", []), ("risk_engine_version", "caller")]:
+        assert client.post("/api/v1/action-requests", json={**body(ids), field: value}).status_code == 422
 
 
 def test_idempotency_retry_and_conflict_prevent_duplicates() -> None:
@@ -124,6 +128,7 @@ def test_idempotency_retry_and_conflict_prevent_duplicates() -> None:
     with TestingSession() as session:
         assert session.scalar(select(func.count()).select_from(ActionRequest).where(ActionRequest.idempotency_key == "same-key")) == 1
         assert session.scalar(select(func.count()).select_from(Decision).join(ActionRequest).where(ActionRequest.idempotency_key == "same-key")) == 1
+        assert session.scalar(select(func.count()).select_from(AuditEvent).join(ActionRequest).where(ActionRequest.idempotency_key == "same-key", AuditEvent.event_type == "RISK_EVALUATED")) == 1
 
 
 def test_audit_events_are_appended_for_evaluation_outcome() -> None:
@@ -131,7 +136,11 @@ def test_audit_events_are_appended_for_evaluation_outcome() -> None:
     result = client.post("/api/v1/action-requests", json=body(ids, "audit-key")).json()
     with TestingSession() as session:
         events = session.scalars(select(AuditEvent).where(AuditEvent.action_request_id == UUID(result["action_request_id"])).order_by(AuditEvent.created_at)).all()
-        assert [event.event_type for event in events] == ["ACTION_REQUEST_RECEIVED", "POLICY_EVALUATED", "ACTION_AUTHORIZED"]
+        assert [event.event_type for event in events] == ["ACTION_REQUEST_RECEIVED", "RISK_EVALUATED", "POLICY_EVALUATED", "ACTION_AUTHORIZED"]
+        risk_event = events[1]
+        assert risk_event.event_data["engine_version"] == RiskEngine.VERSION
+        assert isinstance(risk_event.event_data["score"], int)
+        assert risk_event.event_data["factors"]
 
 
 def test_unknown_reference_fails_closed_and_internal_evaluator_error_does_not_allow(monkeypatch) -> None:
@@ -144,3 +153,14 @@ def test_unknown_reference_fails_closed_and_internal_evaluator_error_does_not_al
     monkeypatch.setattr(GatewayService, "submit", lambda self, payload: (_ for _ in ()).throw(RuntimeError("test evaluator failure")))
     response = client.post("/api/v1/action-requests", json=body(ids, "internal-error"))
     assert response.status_code == 400
+
+
+def test_risk_engine_failure_rolls_back_and_never_authorizes(monkeypatch) -> None:
+    ids = fixture_records(); add_policy(ids)
+    monkeypatch.setattr(RiskEngine, "evaluate", lambda *args, **kwargs: (_ for _ in ()).throw(RuntimeError("risk failure")))
+    response = client.post("/api/v1/action-requests", json=body(ids, "risk-failure"))
+    assert response.status_code == 400
+    assert "AUTHORIZED" not in response.text
+    with TestingSession() as session:
+        assert session.scalar(select(func.count()).select_from(ActionRequest).where(ActionRequest.idempotency_key == "risk-failure")) == 0
+        assert session.scalar(select(func.count()).select_from(Decision)) == 0

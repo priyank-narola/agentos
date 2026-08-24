@@ -264,6 +264,10 @@ class GatewayResponse(BaseModel):
     reason_code: str
     reason: str
     risk_level: RiskClassification | None = None
+    risk_score: int | None = Field(default=None, ge=0, le=100)
+    risk_classification: str | None = None
+    risk_factors: list[dict[str, Any]] = Field(default_factory=list)
+    risk_engine_version: str | None = None
     approval_required: bool
     execution_status: str
     requested_at: datetime
@@ -290,6 +294,10 @@ class ActionRequestDetailSchema(BaseModel):
     reason: str | None = None
     reason_code: str | None = None
     risk_level: RiskClassification | None = None
+    risk_score: int | None = Field(default=None, ge=0, le=100)
+    risk_classification: str | None = None
+    risk_factors: list[dict[str, Any]] = Field(default_factory=list)
+    risk_engine_version: str | None = None
     decided_at: datetime | None = None
 
 

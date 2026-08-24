@@ -20,10 +20,11 @@ Agent request
 4. Derive the tool exclusively from `Action.tool_id`; `tool_id` is not accepted in the gateway request schema.
 5. Persist `ActionRequest`.
 6. Append `ACTION_REQUEST_RECEIVED`.
-7. Invoke the Phase 4 deterministic evaluator.
-8. Persist a separate `Decision` using `BLOCK` for the evaluation contract's `DENY` result.
-9. Append policy and outcome audit events.
-10. Return `NOT_EXECUTED` for every outcome.
+7. Calculate deterministic risk and append `RISK_EVALUATED`.
+8. Pass risk context to the Phase 4 deterministic evaluator.
+9. Persist a separate `Decision`, including `risk_score`, using `BLOCK` for the evaluation contract's `DENY` result.
+10. Append policy and outcome audit events.
+11. Return `NOT_EXECUTED` for every outcome.
 
 ## Decision mapping
 
@@ -34,6 +35,8 @@ Agent request
 | `REQUIRE_APPROVAL` | `PENDING_APPROVAL` | `REQUIRE_APPROVAL` |
 
 No external or simulated tool is called in Phase 5.
+
+Risk provides contextual evidence; it does not authorize actions. The deterministic policy evaluator remains authoritative.
 
 ## Security boundary
 

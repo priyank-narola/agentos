@@ -10,6 +10,8 @@ RECEIVED
 
 Every gateway response also reports `execution_status: NOT_EXECUTED`. Phase 5 deliberately stops at authorization persistence.
 
+Before policy evaluation, Phase 6 appends one `RISK_EVALUATED` event and stores its normalized score with the eventual decision. Risk evidence does not change the request identity and does not independently authorize it.
+
 ## Idempotency
 
 `idempotency_key` is unique in the database. The gateway canonicalizes principal, agent, action, resource, and parameters with sorted JSON keys. A retry with the same key and identical canonical content returns the existing request/decision. Reuse with different content returns `409 Conflict`. No duplicate request or decision is created.
@@ -19,6 +21,7 @@ Every gateway response also reports `execution_status: NOT_EXECUTED`. Phase 5 de
 The gateway appends:
 
 - `ACTION_REQUEST_RECEIVED`
+- `RISK_EVALUATED`
 - `POLICY_EVALUATED`
 - `ACTION_AUTHORIZED`
 - `ACTION_BLOCKED`
