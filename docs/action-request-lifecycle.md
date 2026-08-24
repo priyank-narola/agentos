@@ -1,0 +1,27 @@
+# Action Request Lifecycle
+
+An action request is the immutable-in-meaning input record. The decision is a separate server-generated record.
+
+```text
+RECEIVED
+  -> EVALUATED       (ALLOW or BLOCK)
+  -> APPROVAL_PENDING (REQUIRE_APPROVAL)
+```
+
+Every gateway response also reports `execution_status: NOT_EXECUTED`. Phase 5 deliberately stops at authorization persistence.
+
+## Idempotency
+
+`idempotency_key` is unique in the database. The gateway canonicalizes principal, agent, action, resource, and parameters with sorted JSON keys. A retry with the same key and identical canonical content returns the existing request/decision. Reuse with different content returns `409 Conflict`. No duplicate request or decision is created.
+
+## Audit evidence
+
+The gateway appends:
+
+- `ACTION_REQUEST_RECEIVED`
+- `POLICY_EVALUATED`
+- `ACTION_AUTHORIZED`
+- `ACTION_BLOCKED`
+- `APPROVAL_REQUIRED`
+
+Events reference request and decision IDs where available and are never updated as part of a retry.

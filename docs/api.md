@@ -57,3 +57,15 @@ Example agent request:
 ## Limitations
 
 There is no authentication, policy evaluation, delegation evaluation, runtime gateway, risk engine, approval workflow, or action execution in Phase 3.
+
+## Runtime gateway endpoints
+
+Phase 5 adds:
+
+| Method | Path | Purpose |
+| --- | --- | --- |
+| POST | `/action-requests` | Validate, evaluate, persist, and enforce a non-executing action request |
+| GET | `/action-requests` | Read joined request and decision evidence |
+| GET | `/action-requests/{id}` | Read one joined request and decision |
+
+The POST body accepts principal, agent, action, resource, parameters, and idempotency key. It intentionally rejects caller-provided `tool_id`, decision, risk, policy, or authorization fields. Tool resolution comes from the persisted action relationship.

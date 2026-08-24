@@ -247,6 +247,52 @@ class ActionRequestSchema(DomainSchema):
     idempotency_key: str
 
 
+class GatewayRequestCreate(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    principal_id: UUID
+    agent_id: UUID
+    action_id: UUID
+    resource_id: UUID
+    parameters: dict[str, Any] = Field(default_factory=dict)
+    idempotency_key: str = Field(min_length=1, max_length=200)
+
+
+class GatewayResponse(BaseModel):
+    action_request_id: UUID
+    gateway_status: str
+    decision: str
+    reason_code: str
+    reason: str
+    risk_level: RiskClassification | None = None
+    approval_required: bool
+    execution_status: str
+    requested_at: datetime
+    decided_at: datetime
+
+
+class ActionRequestDetailSchema(BaseModel):
+    id: UUID
+    agent_id: UUID
+    agent_name: str
+    principal_id: UUID
+    action_id: UUID
+    action_name: str
+    tool_id: UUID
+    tool_name: str
+    resource_id: UUID
+    resource_type: str
+    resource_key: str
+    parameters: dict[str, Any]
+    status: ActionRequestStatus
+    idempotency_key: str
+    requested_at: datetime
+    decision: str | None = None
+    reason: str | None = None
+    reason_code: str | None = None
+    risk_level: RiskClassification | None = None
+    decided_at: datetime | None = None
+
+
 class DecisionSchema(DomainSchema):
     id: UUID
     action_request_id: UUID
