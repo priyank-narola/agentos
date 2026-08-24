@@ -27,4 +27,6 @@ The gateway appends:
 - `ACTION_BLOCKED`
 - `APPROVAL_REQUIRED`
 
+When a request requires approval, `ApprovalRequest` remains bound to the original request, risk evidence, and policy decision. A later human approval creates a separate final `ALLOW` decision with `HUMAN_APPROVAL`; the original evaluation is not rewritten.
+
 Events reference request and decision IDs where available and are never updated as part of a retry.

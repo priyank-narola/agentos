@@ -26,6 +26,8 @@ Agent request
 10. Append policy and outcome audit events.
 11. Return `NOT_EXECUTED` for every outcome.
 
+When the result is `REQUIRE_APPROVAL`, the gateway also creates one bound `ApprovalRequest` with a 15-minute expiry and appends `APPROVAL_REQUESTED`. Approval processing remains a separate workflow and never executes the action.
+
 ## Decision mapping
 
 | Evaluator | Gateway | Persistence |

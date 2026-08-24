@@ -69,3 +69,15 @@ Phase 5 adds:
 | GET | `/action-requests/{id}` | Read one joined request and decision |
 
 The POST body accepts principal, agent, action, resource, parameters, and idempotency key. It intentionally rejects caller-provided `tool_id`, decision, risk, policy, or authorization fields. Tool resolution comes from the persisted action relationship.
+
+## Approval endpoints
+
+| Method | Path | Purpose |
+| --- | --- | --- |
+| GET | `/approvals` | List approval requests |
+| GET | `/approvals/{id}` | Read one bound approval request |
+| POST | `/approvals/{id}/approve` | Approve a pending request |
+| POST | `/approvals/{id}/reject` | Reject a pending request |
+| POST | `/approvals/{id}/cancel` | Cancel a pending request |
+
+Transition endpoints accept only `approver_principal_id` and reject extra decision/action/risk fields. Approval authorizes execution in principle but does not execute external actions.

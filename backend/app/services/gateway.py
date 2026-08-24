@@ -5,13 +5,14 @@ from uuid import UUID
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from app.db.models import ActionRequest, ActionRequestStatus, Action, Agent, AuditEvent, ActorType, Decision, DecisionType, Delegation, Resource, Tool, Principal
+from app.db.models import ActionRequest, ActionRequestStatus, Action, Agent, ApprovalRequest, AuditEvent, ActorType, Decision, DecisionType, Delegation, Resource, Tool, Principal
 from app.policy import DeterministicPolicyEvaluator, EvaluationInput, ResolvedRecords
 from app.repositories.gateway import GatewayRepository
 from app.repositories.policy import PolicyRepository
 from app.schemas import ActionRequestDetailSchema, GatewayRequestCreate, GatewayResponse
 from app.risk import RiskAssessment, RiskContext, RiskEngine
 from app.services.errors import RegistryConflictError
+from app.services.approval import ApprovalService
 
 
 class GatewayIdempotencyConflict(RegistryConflictError):
@@ -25,6 +26,7 @@ class GatewayService:
         self.policies = PolicyRepository(db)
         self.evaluator = DeterministicPolicyEvaluator()
         self.risk_engine = RiskEngine()
+        self.approvals = ApprovalService(db)
 
     def submit(self, payload: GatewayRequestCreate) -> GatewayResponse:
         existing = self.repository.get_by_idempotency_key(payload.idempotency_key)
@@ -60,6 +62,8 @@ class GatewayService:
         decision = Decision(action_request_id=request.id, decision=decision_value, reason=f"{result.reason_code}: {result.reason}", policy_id=matched.policy_id if matched else None, policy_version=matched.policy_version if matched else None, risk_score=risk.score)
         self.db.add(decision)
         self.db.flush()
+        if result.decision == "REQUIRE_APPROVAL":
+            self.approvals.create_for_request(ApprovalRequest(action_request=request, requested_by=principal.id, reason=f"{result.reason_code}: {result.reason}"), evaluated_at)
         event_type = "ACTION_AUTHORIZED" if result.decision == "ALLOW" else "APPROVAL_REQUIRED" if result.decision == "REQUIRE_APPROVAL" else "ACTION_BLOCKED"
         self._audit(event_type, principal.id, agent.id, request.id, decision.id, {"execution_status": "NOT_EXECUTED"})
         self.db.commit()

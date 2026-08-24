@@ -5,6 +5,7 @@ from app.config import settings
 from app.api.registry import router as registry_router
 from app.api.policy import router as policy_router
 from app.api.gateway import router as gateway_router
+from app.api.approval import router as approval_router
 
 app = FastAPI(title=settings.app_name, version=settings.app_version)
 app.add_middleware(
@@ -17,6 +18,7 @@ app.add_middleware(
 app.include_router(registry_router)
 app.include_router(policy_router)
 app.include_router(gateway_router)
+app.include_router(approval_router)
 
 
 @app.get("/health", tags=["system"])

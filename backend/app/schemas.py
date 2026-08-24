@@ -331,3 +331,36 @@ class ApprovalRequestSchema(DomainSchema):
     decided_by: UUID | None = None
     decided_at: datetime | None = None
     expires_at: datetime | None = None
+
+
+class ApprovalDetailSchema(BaseModel):
+    id: UUID
+    action_request_id: UUID
+    agent_id: UUID
+    agent_name: str
+    principal_id: UUID
+    action_id: UUID
+    action_name: str
+    tool_id: UUID
+    tool_name: str
+    resource_id: UUID
+    resource_type: str
+    resource_key: str
+    parameters: dict[str, Any]
+    requested_by: UUID
+    status: ApprovalStatus
+    reason: str
+    risk_score: int | None = None
+    risk_classification: str | None = None
+    risk_factors: list[dict[str, Any]] = Field(default_factory=list)
+    policy_id: UUID | None = None
+    policy_version: int | None = None
+    decided_by: UUID | None = None
+    decided_at: datetime | None = None
+    requested_at: datetime
+    expires_at: datetime
+
+
+class ApprovalActionRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    approver_principal_id: UUID

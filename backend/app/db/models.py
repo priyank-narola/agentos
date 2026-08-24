@@ -95,6 +95,7 @@ class ApprovalStatus(StrEnum):
     APPROVED = "APPROVED"
     REJECTED = "REJECTED"
     EXPIRED = "EXPIRED"
+    CANCELLED = "CANCELLED"
 
 
 class ActorType(StrEnum):
