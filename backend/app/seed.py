@@ -18,6 +18,10 @@ from app.db.models import (
     ResourceStatus,
     RiskClassification,
     Tool,
+    Policy,
+    PolicyEffect,
+    PolicyRule,
+    PolicyStatus,
 )
 
 
@@ -76,7 +80,7 @@ def seed_demo(session: Session) -> dict[str, int]:
             session.add(Resource(resource_type=resource_type, resource_key=resource_key, sensitivity=sensitivity, status=ResourceStatus.ACTIVE))
             resource_count += 1
 
-    delegation_specs = [("FinanceAgent", "finance.transfer"), ("SalesAgent", "crm.read"), ("ResearchAgent", "research.read")]
+    delegation_specs = [("FinanceAgent", "payments.bank"), ("SalesAgent", "crm.read"), ("ResearchAgent", "data.read")]
     delegation_count = 0
     issued_at = datetime.now(timezone.utc)
     for agent_name, scope in delegation_specs:
@@ -84,8 +88,22 @@ def seed_demo(session: Session) -> dict[str, int]:
             session.add(Delegation(principal=principal, agent=agents[agent_name], scope=scope, issued_at=issued_at))
             delegation_count += 1
 
+    policy_specs = [
+        ("Demo Safe CRM Read", "read_customer", "crm_record", PolicyEffect.ALLOW, None),
+        ("Demo Blocked Payroll", "read_sensitive_payroll", "dataset", PolicyEffect.DENY, None),
+        ("Demo Approval Transfer", "bank_transfer", "bank_account", PolicyEffect.ALLOW, None),
+    ]
+    policies_created = 0
+    for name, action_name, resource_type, effect, conditions in policy_specs:
+        policy = _first(session, Policy, name=name, version=1)
+        if policy is None:
+            policy = Policy(name=name, version=1, priority=10, status=PolicyStatus.ACTIVE, description="Deterministic competition demo policy")
+            policy.rules = [PolicyRule(effect=effect, action=action_name, resource_type=resource_type, priority=10, conditions=conditions)]
+            session.add(policy)
+            policies_created += 1
+
     session.commit()
-    return {"principals": 1, "agents": len(agents), "tools": len(tools), "actions_created": action_count, "resources_created": resource_count, "delegations_created": delegation_count}
+    return {"principals": 1, "agents": len(agents), "tools": len(tools), "actions_created": action_count, "resources_created": resource_count, "delegations_created": delegation_count, "policies_created": policies_created}
 
 
 if __name__ == "__main__":

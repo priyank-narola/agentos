@@ -29,7 +29,8 @@ class ApprovalService:
         return self._detail(item) if item else None
 
     def create_for_request(self, request: ApprovalRequest, now: datetime | None = None) -> ApprovalRequest:
-        existing = self.repository.for_action_request(request.action_request_id)
+        with self.db.no_autoflush:
+            existing = self.repository.for_action_request(request.action_request_id)
         if existing is not None:
             return existing
         request.expires_at = request.expires_at or (now or datetime.now(timezone.utc)) + timedelta(minutes=self.EXPIRY_MINUTES)

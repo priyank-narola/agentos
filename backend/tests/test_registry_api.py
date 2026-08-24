@@ -65,8 +65,8 @@ def test_seed_demo_is_idempotent() -> None:
     with TestingSession() as session:
         first = seed_demo(session)
         second = seed_demo(session)
-        assert first == {"principals": 1, "agents": 3, "tools": 4, "actions_created": 6, "resources_created": 4, "delegations_created": 3}
-        assert second == {"principals": 1, "agents": 3, "tools": 4, "actions_created": 0, "resources_created": 0, "delegations_created": 0}
+        assert first == {"principals": 1, "agents": 3, "tools": 4, "actions_created": 6, "resources_created": 4, "delegations_created": 3, "policies_created": 3}
+        assert second == {"principals": 1, "agents": 3, "tools": 4, "actions_created": 0, "resources_created": 0, "delegations_created": 0, "policies_created": 0}
         assert session.scalar(select(func.count()).select_from(Principal)) == 2  # registry owner + demo admin
         assert session.scalar(select(func.count()).select_from(Agent)) == 4
         assert session.scalar(select(func.count()).select_from(Tool)) == 5
