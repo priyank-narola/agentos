@@ -6,8 +6,8 @@ from datetime import datetime
 from decimal import Decimal
 from typing import Any
 
-from sqlalchemy import JSON, DateTime, ForeignKey, Index, Integer, Numeric, String, Text, UniqueConstraint, func
-from sqlalchemy.dialects.postgresql import JSONB, UUID
+from sqlalchemy import JSON, DateTime, ForeignKey, Index, Integer, Numeric, String, Text, UniqueConstraint, Uuid, func
+from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from sqlalchemy.types import Enum as SqlEnum
 
@@ -120,7 +120,7 @@ class Principal(TimestampMixin, Base):
     __tablename__ = "principals"
     __table_args__ = (UniqueConstraint("type", "external_id", name="uq_principals_type_external_id"),)
 
-    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    id: Mapped[uuid.UUID] = mapped_column(Uuid(as_uuid=True), primary_key=True, default=uuid.uuid4)
     type: Mapped[PrincipalType] = mapped_column(enum_type(PrincipalType), nullable=False)
     name: Mapped[str] = mapped_column(String(200), nullable=False)
     external_id: Mapped[str] = mapped_column(String(200), nullable=False)
@@ -131,7 +131,7 @@ class Principal(TimestampMixin, Base):
 class Agent(TimestampMixin, Base):
     __tablename__ = "agents"
 
-    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    id: Mapped[uuid.UUID] = mapped_column(Uuid(as_uuid=True), primary_key=True, default=uuid.uuid4)
     name: Mapped[str] = mapped_column(String(200), nullable=False, unique=True)
     description: Mapped[str | None] = mapped_column(Text)
     owner_principal_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("principals.id", ondelete="RESTRICT"), nullable=False)
@@ -148,7 +148,7 @@ class Delegation(Base):
     __tablename__ = "delegations"
     __table_args__ = (Index("ix_delegations_agent_status", "agent_id", "status"),)
 
-    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    id: Mapped[uuid.UUID] = mapped_column(Uuid(as_uuid=True), primary_key=True, default=uuid.uuid4)
     principal_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("principals.id", ondelete="RESTRICT"), nullable=False)
     agent_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("agents.id", ondelete="RESTRICT"), nullable=False)
     scope: Mapped[str] = mapped_column(String(200), nullable=False)
@@ -163,7 +163,7 @@ class Delegation(Base):
 class Tool(Base):
     __tablename__ = "tools"
 
-    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    id: Mapped[uuid.UUID] = mapped_column(Uuid(as_uuid=True), primary_key=True, default=uuid.uuid4)
     name: Mapped[str] = mapped_column(String(200), nullable=False, unique=True)
     description: Mapped[str] = mapped_column(Text, nullable=False)
     status: Mapped[CapabilityStatus] = mapped_column(enum_type(CapabilityStatus), nullable=False, default=CapabilityStatus.ACTIVE)
@@ -174,7 +174,7 @@ class Action(Base):
     __tablename__ = "actions"
     __table_args__ = (UniqueConstraint("tool_id", "name", name="uq_actions_tool_name"),)
 
-    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    id: Mapped[uuid.UUID] = mapped_column(Uuid(as_uuid=True), primary_key=True, default=uuid.uuid4)
     tool_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("tools.id", ondelete="RESTRICT"), nullable=False)
     name: Mapped[str] = mapped_column(String(200), nullable=False)
     description: Mapped[str] = mapped_column(Text, nullable=False)
@@ -188,7 +188,7 @@ class Resource(Base):
     __tablename__ = "resources"
     __table_args__ = (UniqueConstraint("resource_type", "resource_key", name="uq_resources_type_key"),)
 
-    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    id: Mapped[uuid.UUID] = mapped_column(Uuid(as_uuid=True), primary_key=True, default=uuid.uuid4)
     resource_type: Mapped[str] = mapped_column(String(100), nullable=False)
     resource_key: Mapped[str] = mapped_column(String(300), nullable=False)
     sensitivity: Mapped[ResourceSensitivity] = mapped_column(enum_type(ResourceSensitivity), nullable=False)
@@ -201,7 +201,7 @@ class Policy(TimestampMixin, Base):
     __tablename__ = "policies"
     __table_args__ = (UniqueConstraint("name", "version", name="uq_policies_name_version"),)
 
-    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    id: Mapped[uuid.UUID] = mapped_column(Uuid(as_uuid=True), primary_key=True, default=uuid.uuid4)
     name: Mapped[str] = mapped_column(String(200), nullable=False)
     description: Mapped[str | None] = mapped_column(Text)
     status: Mapped[PolicyStatus] = mapped_column(enum_type(PolicyStatus), nullable=False, default=PolicyStatus.DRAFT)
@@ -214,7 +214,7 @@ class PolicyRule(Base):
     __tablename__ = "policy_rules"
     __table_args__ = (Index("ix_policy_rules_policy_priority", "policy_id", "priority"),)
 
-    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    id: Mapped[uuid.UUID] = mapped_column(Uuid(as_uuid=True), primary_key=True, default=uuid.uuid4)
     policy_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("policies.id", ondelete="RESTRICT"), nullable=False)
     effect: Mapped[PolicyEffect] = mapped_column(enum_type(PolicyEffect), nullable=False)
     action: Mapped[str] = mapped_column(String(200), nullable=False)
@@ -228,7 +228,7 @@ class ActionRequest(Base):
     __tablename__ = "action_requests"
     __table_args__ = (Index("ix_action_requests_agent_requested_at", "agent_id", "requested_at"),)
 
-    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    id: Mapped[uuid.UUID] = mapped_column(Uuid(as_uuid=True), primary_key=True, default=uuid.uuid4)
     agent_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("agents.id", ondelete="RESTRICT"), nullable=False)
     principal_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("principals.id", ondelete="RESTRICT"), nullable=False)
     action_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("actions.id", ondelete="RESTRICT"), nullable=False)
@@ -250,7 +250,7 @@ class Decision(Base):
     __tablename__ = "decisions"
     __table_args__ = (Index("ix_decisions_action_request_decided_at", "action_request_id", "decided_at"),)
 
-    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    id: Mapped[uuid.UUID] = mapped_column(Uuid(as_uuid=True), primary_key=True, default=uuid.uuid4)
     action_request_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("action_requests.id", ondelete="RESTRICT"), nullable=False)
     decision: Mapped[DecisionType] = mapped_column(enum_type(DecisionType), nullable=False)
     reason: Mapped[str] = mapped_column(Text, nullable=False)
@@ -266,7 +266,7 @@ class Decision(Base):
 class ApprovalRequest(Base):
     __tablename__ = "approval_requests"
 
-    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    id: Mapped[uuid.UUID] = mapped_column(Uuid(as_uuid=True), primary_key=True, default=uuid.uuid4)
     action_request_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("action_requests.id", ondelete="RESTRICT"), nullable=False)
     requested_by: Mapped[uuid.UUID] = mapped_column(ForeignKey("principals.id", ondelete="RESTRICT"), nullable=False)
     status: Mapped[ApprovalStatus] = mapped_column(enum_type(ApprovalStatus), nullable=False, default=ApprovalStatus.PENDING)
@@ -286,10 +286,10 @@ class AuditEvent(Base):
         Index("ix_audit_events_agent_created_at", "agent_id", "created_at"),
     )
 
-    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    id: Mapped[uuid.UUID] = mapped_column(Uuid(as_uuid=True), primary_key=True, default=uuid.uuid4)
     event_type: Mapped[str] = mapped_column(String(100), nullable=False)
     actor_type: Mapped[ActorType] = mapped_column(enum_type(ActorType), nullable=False)
-    actor_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), nullable=False)
+    actor_id: Mapped[uuid.UUID] = mapped_column(Uuid(as_uuid=True), nullable=False)
     agent_id: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("agents.id", ondelete="RESTRICT"))
     action_request_id: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("action_requests.id", ondelete="RESTRICT"))
     decision_id: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("decisions.id", ondelete="RESTRICT"))

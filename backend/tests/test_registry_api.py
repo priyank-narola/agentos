@@ -73,3 +73,22 @@ def test_seed_demo_is_idempotent() -> None:
         assert session.scalar(select(func.count()).select_from(Action)) == 7
         assert session.scalar(select(func.count()).select_from(Resource)) == 5
         assert session.scalar(select(func.count()).select_from(Delegation)) == 4
+
+
+def test_get_principal_by_id_regression() -> None:
+    app.dependency_overrides[get_db] = override_db
+    # 1. Create a principal
+    payload = principal_payload(external_id="regression-test-principal")
+    created = client.post("/api/v1/principals", json=payload).json()
+    p_id = created["id"]
+    
+    # 2. List principals and verify the created principal is returned
+    listed = client.get("/api/v1/principals").json()
+    listed_ids = [p["id"] for p in listed]
+    assert p_id in listed_ids
+
+    # 3. GET the principal by ID directly and verify it returns 200
+    response = client.get(f"/api/v1/principals/{p_id}")
+    assert response.status_code == 200
+    assert response.json()["id"] == p_id
+
