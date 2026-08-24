@@ -1,6 +1,6 @@
 # AgentOS
 
-AgentOS is a runtime trust layer for autonomous AI-agent actions. The Phase 1 foundation establishes a separate Next.js frontend and FastAPI backend for the Autonomous Action Firewall MVP.
+AgentOS is an AI Action Governance and Control Plane that evaluates identity, delegated authority, risk, policy, and human approval before an AI-initiated action reaches the real world. External execution is intentionally disabled in the competition MVP.
 
 ## Development
 
@@ -22,6 +22,6 @@ npm run dev
 
 The frontend runs at `http://localhost:3000`. The backend runs at `http://localhost:8000`. See `docs/development.md` for verification commands and configuration details.
 
-## Phase 1 status
+## Deployment
 
-This foundation intentionally does not include authentication, persistence, registries, policy evaluation, risk scoring, action execution, or audit functionality. Those capabilities are planned for later phases and are not represented as working features in the interface.
+Production deployment targets Vercel for `frontend/`, Render for `backend/`, and managed PostgreSQL. See `docs/DEPLOYMENT.md` for exact environment variables, migrations, seeding, and smoke tests.
