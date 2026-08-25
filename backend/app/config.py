@@ -19,5 +19,14 @@ class Settings:
     frontend_origin: str = os.getenv("FRONTEND_ORIGIN", "http://localhost:3000")
     database_url: str = normalize_database_url(os.getenv("DATABASE_URL", ""))
 
+    # MCP Auth settings
+    mcp_auth_enabled: bool = os.getenv("MCP_AUTH_ENABLED", "false").lower() in ("true", "1", "yes")
+    mcp_auth_issuer: str = os.getenv("MCP_AUTH_ISSUER", "https://auth.agentos.com")
+    mcp_auth_audience: str = os.getenv("MCP_AUTH_AUDIENCE", "https://agentos-api-qm2r.onrender.com")
+    mcp_auth_jwks_url: str = os.getenv("MCP_AUTH_JWKS_URL", "https://auth.agentos.com/.well-known/jwks.json")
+    mcp_auth_required_scope: str = os.getenv("MCP_AUTH_REQUIRED_SCOPE", "agentos:execute")
+    mcp_auth_public_key: str = os.getenv("MCP_AUTH_PUBLIC_KEY", "")
+    mcp_auth_secret_key: str = os.getenv("MCP_AUTH_SECRET_KEY", "")
+
 
 settings = Settings()

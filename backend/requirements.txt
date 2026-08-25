@@ -8,3 +8,4 @@ sqlalchemy==2.0.52
 psycopg[binary]==3.2.12
 uvicorn[standard]==0.34.2
 mcp==2.0.0
+pyjwt[crypto]==2.10.1
