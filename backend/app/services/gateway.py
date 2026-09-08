@@ -131,11 +131,11 @@ class GatewayService:
         self.db.refresh(request)
         return self._response(request)
 
-    def list_requests(self) -> list[ActionRequestDetailSchema]:
-        return [self._detail(request) for request in self.repository.list_requests()]
+    def list_requests(self, tenant_id: UUID | None = None) -> list[ActionRequestDetailSchema]:
+        return [self._detail(request) for request in self.repository.list_requests(tenant_id=tenant_id)]
 
-    def get_request(self, request_id: UUID) -> ActionRequestDetailSchema | None:
-        request = self.repository.get_request(request_id)
+    def get_request(self, request_id: UUID, tenant_id: UUID | None = None) -> ActionRequestDetailSchema | None:
+        request = self.repository.get_request(request_id, tenant_id=tenant_id)
         return self._detail(request) if request else None
 
     def _response(self, request: ActionRequest) -> GatewayResponse:

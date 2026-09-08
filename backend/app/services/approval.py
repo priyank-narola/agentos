@@ -23,6 +23,10 @@ class ApprovalConflictError(RegistryConflictError):
     pass
 
 
+class ApprovalTenantForbiddenError(ApprovalConflictError):
+    """Raised when an operation crosses the authenticated tenant boundary."""
+
+
 class ApprovalService:
     EXPIRY_MINUTES = 15
 
@@ -31,14 +35,14 @@ class ApprovalService:
         self.repository = ApprovalRepository(db)
         self.execution_provider = SandboxPaymentProvider()
 
-    def list(self) -> list[ApprovalDetailSchema]:
-        return [self._detail(item) for item in self.repository.list()]
+    def list(self, tenant_id: UUID | None = None) -> list[ApprovalDetailSchema]:
+        return [self._detail(item) for item in self.repository.list(tenant_id=tenant_id)]
 
-    def get(self, approval_id: UUID) -> ApprovalDetailSchema | None:
-        item = self.repository.get(approval_id)
+    def get(self, approval_id: UUID, tenant_id: UUID | None = None) -> ApprovalDetailSchema | None:
+        item = self.repository.get(approval_id, tenant_id=tenant_id)
         return self._detail(item) if item else None
 
-    def eligible_approvers(self, approval_id: UUID) -> "list[dict]":
+    def eligible_approvers(self, approval_id: UUID, tenant_id: UUID | None = None) -> "list[dict]":
         """Return ACTIVE human principals in the approval's tenant who are not the
         requester (SoD-eligible approver candidates).
 
@@ -47,7 +51,7 @@ class ApprovalService:
         duties against the actor it receives. Tenant is derived server-side from
         the approval record; no client-supplied tenant is trusted.
         """
-        approval = self.repository.get(approval_id)
+        approval = self.repository.get(approval_id, tenant_id=tenant_id)
         if approval is None:
             return []
         requester_ids = {approval.requested_by}
@@ -88,22 +92,24 @@ class ApprovalService:
         })
         return request
 
-    def approve(self, approval_id: UUID, payload: ApprovalActionRequest) -> ApprovalDetailSchema:
-        return self._transition(approval_id, payload.approver_principal_id, ApprovalStatus.APPROVED)
+    def approve(self, approval_id: UUID, payload: ApprovalActionRequest, tenant_id: UUID | None = None) -> ApprovalDetailSchema:
+        return self._transition(approval_id, payload.approver_principal_id, ApprovalStatus.APPROVED, tenant_id=tenant_id)
 
-    def reject(self, approval_id: UUID, payload: ApprovalActionRequest) -> ApprovalDetailSchema:
-        return self._transition(approval_id, payload.approver_principal_id, ApprovalStatus.REJECTED)
+    def reject(self, approval_id: UUID, payload: ApprovalActionRequest, tenant_id: UUID | None = None) -> ApprovalDetailSchema:
+        return self._transition(approval_id, payload.approver_principal_id, ApprovalStatus.REJECTED, tenant_id=tenant_id)
 
     def expire(self, approval_id: UUID) -> ApprovalDetailSchema:
         return self._transition(approval_id, None, ApprovalStatus.EXPIRED)
 
-    def cancel(self, approval_id: UUID, payload: ApprovalActionRequest) -> ApprovalDetailSchema:
-        return self._transition(approval_id, payload.approver_principal_id, ApprovalStatus.CANCELLED)
+    def cancel(self, approval_id: UUID, payload: ApprovalActionRequest, tenant_id: UUID | None = None) -> ApprovalDetailSchema:
+        return self._transition(approval_id, payload.approver_principal_id, ApprovalStatus.CANCELLED, tenant_id=tenant_id)
 
-    def _transition(self, approval_id: UUID, actor_id: UUID | None, target: ApprovalStatus) -> ApprovalDetailSchema:
+    def _transition(self, approval_id: UUID, actor_id: UUID | None, target: ApprovalStatus, tenant_id: UUID | None = None) -> ApprovalDetailSchema:
         approval = self.repository.get(approval_id, lock=True)
         if approval is None:
             raise RegistryValidationError("Approval request not found")
+        if tenant_id is not None and approval.tenant_id != tenant_id:
+            raise ApprovalTenantForbiddenError("Cross-tenant approval access forbidden")
         now = datetime.now(timezone.utc)
         if approval.status != ApprovalStatus.PENDING:
             raise ApprovalConflictError(f"Approval request is already {approval.status.value}")

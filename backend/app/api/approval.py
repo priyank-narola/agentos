@@ -1,12 +1,12 @@
 from uuid import UUID
 from typing import Any
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Request, status
 from sqlalchemy.orm import Session
 
 from app.db.session import get_db
 from app.schemas import ApprovalActionRequest, ApprovalDetailSchema
-from app.services.approval import ApprovalConflictError, ApprovalService
+from app.services.approval import ApprovalConflictError, ApprovalService, ApprovalTenantForbiddenError
 from app.services.errors import RegistryValidationError
 from app.api.ratelimit import check_rate_limit
 
@@ -18,34 +18,36 @@ def service(db: Session = Depends(get_db)) -> ApprovalService:
 
 
 @router.get("", response_model=list[ApprovalDetailSchema])
-def list_approvals(approvals: ApprovalService = Depends(service)) -> list[ApprovalDetailSchema]:
-    return approvals.list()
+def list_approvals(request: Request, approvals: ApprovalService = Depends(service)) -> list[ApprovalDetailSchema]:
+    return approvals.list(tenant_id=getattr(request.state, "tenant_id", None))
 
 
 @router.get("/{approval_id}", response_model=ApprovalDetailSchema)
-def get_approval(approval_id: UUID, approvals: ApprovalService = Depends(service)) -> ApprovalDetailSchema:
-    approval = approvals.get(approval_id)
+def get_approval(approval_id: UUID, request: Request, approvals: ApprovalService = Depends(service)) -> ApprovalDetailSchema:
+    approval = approvals.get(approval_id, tenant_id=getattr(request.state, "tenant_id", None))
     if approval is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Approval request not found")
     return approval
 
 
 @router.get("/{approval_id}/approvers", response_model=dict[str, Any])
-def list_eligible_approvers(approval_id: UUID, approvals: ApprovalService = Depends(service)) -> dict[str, Any]:
+def list_eligible_approvers(approval_id: UUID, request: Request, approvals: ApprovalService = Depends(service)) -> dict[str, Any]:
     """Return ACTIVE human principals in the approval's tenant who are eligible to
     decide this approval under separation of duties (never the requester)."""
-    approval = approvals.get(approval_id)
+    approval = approvals.get(approval_id, tenant_id=getattr(request.state, "tenant_id", None))
     if approval is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Approval request not found")
     return {
         "approval_id": str(approval_id),
-        "approvers": approvals.eligible_approvers(approval_id),
+        "approvers": approvals.eligible_approvers(approval_id, tenant_id=getattr(request.state, "tenant_id", None)),
     }
 
 
 def transition(operation):
     try:
         return operation()
+    except ApprovalTenantForbiddenError as error:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=str(error)) from error
     except ApprovalConflictError as error:
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=str(error)) from error
     except RegistryValidationError as error:
@@ -53,15 +55,24 @@ def transition(operation):
 
 
 @router.post("/{approval_id}/approve", response_model=ApprovalDetailSchema, dependencies=[Depends(check_rate_limit)])
-def approve(approval_id: UUID, payload: ApprovalActionRequest, approvals: ApprovalService = Depends(service)) -> ApprovalDetailSchema:
-    return transition(lambda: approvals.approve(approval_id, payload))
+def approve(approval_id: UUID, payload: ApprovalActionRequest, request: Request, approvals: ApprovalService = Depends(service)) -> ApprovalDetailSchema:
+    principal = getattr(request.state, "principal", None)
+    if principal is not None and payload.approver_principal_id != principal.id:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Authenticated principal cannot approve as another principal")
+    return transition(lambda: approvals.approve(approval_id, payload, tenant_id=getattr(request.state, "tenant_id", None)))
 
 
 @router.post("/{approval_id}/reject", response_model=ApprovalDetailSchema, dependencies=[Depends(check_rate_limit)])
-def reject(approval_id: UUID, payload: ApprovalActionRequest, approvals: ApprovalService = Depends(service)) -> ApprovalDetailSchema:
-    return transition(lambda: approvals.reject(approval_id, payload))
+def reject(approval_id: UUID, payload: ApprovalActionRequest, request: Request, approvals: ApprovalService = Depends(service)) -> ApprovalDetailSchema:
+    principal = getattr(request.state, "principal", None)
+    if principal is not None and payload.approver_principal_id != principal.id:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Authenticated principal cannot reject as another principal")
+    return transition(lambda: approvals.reject(approval_id, payload, tenant_id=getattr(request.state, "tenant_id", None)))
 
 
 @router.post("/{approval_id}/cancel", response_model=ApprovalDetailSchema, dependencies=[Depends(check_rate_limit)])
-def cancel(approval_id: UUID, payload: ApprovalActionRequest, approvals: ApprovalService = Depends(service)) -> ApprovalDetailSchema:
-    return transition(lambda: approvals.cancel(approval_id, payload))
+def cancel(approval_id: UUID, payload: ApprovalActionRequest, request: Request, approvals: ApprovalService = Depends(service)) -> ApprovalDetailSchema:
+    principal = getattr(request.state, "principal", None)
+    if principal is not None and payload.approver_principal_id != principal.id:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Authenticated principal cannot cancel as another principal")
+    return transition(lambda: approvals.cancel(approval_id, payload, tenant_id=getattr(request.state, "tenant_id", None)))

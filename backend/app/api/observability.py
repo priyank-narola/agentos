@@ -1,7 +1,7 @@
 from typing import Any
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, HTTPException, Query, Header, status
+from fastapi import APIRouter, Depends, HTTPException, Query, Header, Request, status
 from sqlalchemy.orm import Session
 
 from app.db.session import get_db
@@ -12,14 +12,31 @@ router = APIRouter(prefix="/api/v1/observability", tags=["observability"])
 
 
 def get_tenant_id(
+    request: Request,
     x_tenant_id: UUID | None = Header(None, alias="X-Tenant-ID"),
     tenant_id: UUID | None = Query(None)
 ) -> UUID:
     """
-    Helper to resolve trusted tenant scope.
-    Defaults to DEFAULT_TENANT_ID if unspecified.
-    Explicit header and query tenant_id mismatches trigger 403 Forbidden.
+    Resolve the trusted tenant scope.
+
+    When REST authentication is enforced the tenant comes exclusively from the
+    authenticated Principal (never from client headers/query). Otherwise, for the
+    local development demo, it defaults to the canonical default tenant, and an
+    explicit header/query mismatch still fails closed with 403.
     """
+    enforced_tenant = getattr(request.state, "tenant_id", None)
+    if enforced_tenant is not None:
+        if x_tenant_id and x_tenant_id != enforced_tenant:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Cross-tenant access forbidden: header tenant does not match authenticated tenant"
+            )
+        if tenant_id and tenant_id != enforced_tenant:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Cross-tenant access forbidden: query tenant does not match authenticated tenant"
+            )
+        return enforced_tenant
     if x_tenant_id and tenant_id and x_tenant_id != tenant_id:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,

@@ -1,5 +1,5 @@
 from typing import Any
-from fastapi import FastAPI
+from fastapi import Depends, FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 
@@ -13,6 +13,8 @@ from app.api.observability import router as observability_router
 from app.api.demo_scenarios import router as demo_scenarios_router
 from app.api.integration import router as integration_router
 from app.api.webhook import router as webhook_router
+from app.api.auth_tokens import router as auth_tokens_router
+from app.api.deps import require_rest_auth
 from app.api.mcp import mcp_app
 
 app = FastAPI(title=settings.app_name, version=settings.app_version)
@@ -23,15 +25,20 @@ app.add_middleware(
     allow_methods=["GET", "POST", "PATCH"],
     allow_headers=["*"],
 )
-app.include_router(registry_router)
-app.include_router(policy_router)
-app.include_router(gateway_router)
-app.include_router(approval_router)
-app.include_router(demo_router)
-app.include_router(observability_router)
-app.include_router(demo_scenarios_router)
-app.include_router(integration_router)
+
+# Control-plane routers require REST bearer authentication when it is enforced
+# (any non-development deployment or REST_AUTH_REQUIRED=true). Public/system
+# routes below are intentionally excluded.
+app.include_router(registry_router, dependencies=[Depends(require_rest_auth)])
+app.include_router(policy_router, dependencies=[Depends(require_rest_auth)])
+app.include_router(gateway_router, dependencies=[Depends(require_rest_auth)])
+app.include_router(approval_router, dependencies=[Depends(require_rest_auth)])
+app.include_router(demo_router, dependencies=[Depends(require_rest_auth)])
+app.include_router(observability_router, dependencies=[Depends(require_rest_auth)])
+app.include_router(demo_scenarios_router, dependencies=[Depends(require_rest_auth)])
+app.include_router(integration_router, dependencies=[Depends(require_rest_auth)])
 app.include_router(webhook_router)
+app.include_router(auth_tokens_router)
 
 
 
