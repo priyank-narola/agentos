@@ -169,3 +169,52 @@ def test_cross_tenant_approval_access_denied(db_session):
     # Tenant A principal cannot act on Tenant B's approval.
     response = client.post(f"/api/v1/approvals/{str(b_approval.id)}/reject", json={"approver_principal_id": str(p_a.id)}, headers=auth(p_a.external_id))
     assert response.status_code in (403, 404)
+
+
+def test_registry_catalog_is_tenant_scoped(db_session):
+    t_a, p_a, _, _ = _provision(db_session, "ta")
+    t_b, p_b, _, _ = _provision(db_session, "tb")
+    agent_a = db_session.scalars(select(Agent).where(Agent.tenant_id == p_a.tenant_id)).one()
+    agent_b = db_session.scalars(select(Agent).where(Agent.tenant_id == p_b.tenant_id)).one()
+    headers_a = auth(p_a.external_id)
+
+    # List is tenant-scoped.
+    r = client.get("/api/v1/agents", headers=headers_a)
+    ids = [item["id"] for item in r.json()]
+    assert str(agent_a.id) in ids and str(agent_b.id) not in ids
+
+    # Detail by foreign ID fails closed.
+    r = client.get(f"/api/v1/agents/{agent_b.id}", headers=headers_a)
+    assert r.status_code == 404
+    # Mutation of a foreign tenant's record fails closed.
+    r = client.patch(f"/api/v1/agents/{agent_b.id}", json={"purpose": "hacked"}, headers=headers_a)
+    assert r.status_code == 404
+    r = client.post(f"/api/v1/agents/{agent_b.id}/suspend", headers=headers_a)
+    assert r.status_code == 404
+
+    # Creating an agent attaches to the authenticated tenant.
+    new_agent_name = f"BotNew-{uuid.uuid4().hex[:6]}"
+    r = client.post("/api/v1/agents", json={"name": new_agent_name, "owner_principal_id": str(p_a.id), "purpose": "X", "version": "1.0", "risk_classification": "LOW"}, headers=headers_a)
+    assert r.status_code == 201
+    created = db_session.scalar(select(Agent).where(Agent.name == new_agent_name))
+    assert created is not None and created.tenant_id == p_a.tenant_id
+
+
+def test_policy_catalog_is_tenant_scoped(db_session):
+    t_a, p_a, _, _ = _provision(db_session, "ta")
+    t_b, p_b, _, _ = _provision(db_session, "tb")
+    headers_a = auth(p_a.external_id)
+    # Create one policy per tenant.
+    pa = client.post("/api/v1/policies", json={"name": f"pol_a_{uuid.uuid4().hex[:6]}", "version": 1, "status": "ACTIVE", "priority": 10}, headers=headers_a)
+    pb = client.post("/api/v1/policies", json={"name": f"pol_b_{uuid.uuid4().hex[:6]}", "version": 1, "status": "ACTIVE", "priority": 10}, headers=auth(p_b.external_id))
+    assert pa.status_code == 201 and pb.status_code == 201
+    pid_a = pa.json()["id"]
+    pid_b = pb.json()["id"]
+
+    listed = client.get("/api/v1/policies", headers=headers_a).json()
+    listed_ids = [p["id"] for p in listed]
+    assert pid_a in listed_ids and pid_b not in listed_ids
+    # Detail by foreign ID fails closed.
+    assert client.get(f"/api/v1/policies/{pid_b}", headers=headers_a).status_code == 404
+    # Cannot add a rule to a foreign policy.
+    assert client.post(f"/api/v1/policies/{pid_b}/rules", json={"effect": "ALLOW", "action": "x", "resource_type": "y", "priority": 1}, headers=headers_a).status_code == 404

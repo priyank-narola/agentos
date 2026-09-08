@@ -271,7 +271,7 @@ class ApprovalService:
                 {"risk_score": risk.score, "risk_classification": risk.classification},
                 now, risk.score, risk.classification
             ),
-            ResolvedRecords(requester, agent, tool, action, resource, valid_delegations, policy_repo.list_active_policies())
+            ResolvedRecords(requester, agent, tool, action, resource, valid_delegations, policy_repo.list_active_policies(tenant_id=tenant_id))
         )
 
         if policy_result.decision == "DENY":

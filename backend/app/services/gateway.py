@@ -87,7 +87,7 @@ class GatewayService:
         )).all())
         risk = self.risk_engine.evaluate(RiskContext(agent=agent, tool=tool, action=action, resource=resource, delegations=tuple(delegations), parameters=clean_params, evaluated_at=evaluated_at))
         self._audit("RISK_EVALUATED", principal.id, agent.id, request.id, None, {**self._risk_data(risk), "payload_digest": payload_digest}, tenant_id=tenant_id)
-        result = self.evaluator.evaluate(EvaluationInput(principal.id, agent.id, tool.id, action.id, resource.id, clean_params, {"risk_score": risk.score, "risk_classification": risk.classification}, evaluated_at, risk.score, risk.classification), ResolvedRecords(principal, agent, tool, action, resource, delegations, self.policies.list_active_policies()))
+        result = self.evaluator.evaluate(EvaluationInput(principal.id, agent.id, tool.id, action.id, resource.id, clean_params, {"risk_score": risk.score, "risk_classification": risk.classification}, evaluated_at, risk.score, risk.classification), ResolvedRecords(principal, agent, tool, action, resource, delegations, self.policies.list_active_policies(tenant_id=tenant_id)))
         self._audit("POLICY_EVALUATED", principal.id, agent.id, request.id, None, {"decision": result.decision, "reason_code": result.reason_code, "payload_digest": payload_digest}, tenant_id=tenant_id)
         decision_value = DecisionType.ALLOW if result.decision == "ALLOW" else DecisionType.BLOCK if result.decision == "DENY" else DecisionType.REQUIRE_APPROVAL
         request.status = ActionRequestStatus.APPROVAL_PENDING if result.decision == "REQUIRE_APPROVAL" else ActionRequestStatus.EVALUATED
