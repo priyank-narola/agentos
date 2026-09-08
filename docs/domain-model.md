@@ -1,3 +1,4 @@
+<!-- STATUS: STALE / HISTORICAL. This document predates the verified Chunks 1-3 state and may contradict current runtime behavior (e.g., sandbox execution, FinancialExecution ledger, tenant model, REST/MCP auth). Canonical sources: AGENTOS_OPERATING_PROMPT.md and AGENTOS_STATE.md. Do not use as source of truth. -->
 # AgentOS Domain Model
 
 Phase 2 defines the smallest persistence model needed to evaluate an agent action later. The model keeps identity, delegated authority, policy authorization, risk, and the resulting decision separate.

@@ -17,3 +17,9 @@ services:
         sync: false
       - key: FRONTEND_ORIGIN
         sync: false
+      # Security: production enforces REST bearer auth automatically (APP_ENV=production).
+      # Provide real signing keys via Render secret environment variables.
+      - key: MCP_AUTH_SECRET_KEY
+        sync: false
+      - key: WEBHOOK_SECRET
+        sync: false

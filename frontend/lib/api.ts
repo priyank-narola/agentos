@@ -18,6 +18,9 @@ export type ApproverCandidate = { id: string; name: string; external_id: string;
 export type TreasuryManifest = { tenant_id: string; tenant_name: string; sandbox_only: boolean; requester: { id: string; name: string; external_id: string; title: string }; approver: { id: string; name: string; external_id: string; title: string }; agent: { id: string; name: string; purpose: string }; action: { id: string; name: string; risk_level: string }; resource: { id: string; resource_type: string; resource_key: string; sensitivity: string }; policy: { id: string; name: string; version: number }; default_amount: string; default_currency: string; };
 export type ObservabilityActionDetail = { action_request_id: string; tenant_id: string; gateway_status: string; risk: { score?: number | null; classification?: string | null }; policy: { decision?: string | null; reason_code?: string | null; reason?: string | null }; approval: { required: boolean; status?: string | null; requested_by?: string | null; decided_by?: string | null; decided_at?: string | null }; execution: { status?: string | null; provider_transaction_id?: string | null; provider_name?: string | null }; requested_at?: string | null; };
 export type TimelineEvent = { id: string; event_type: string; actor_type: string; actor_id: string | null; action_request_id: string | null; event_data: Record<string, unknown>; created_at: string | null; };
+export type ObservabilityMetrics = { tenant_id: string; total_action_requests: number; pending_approvals: number; approved_executions: number; rejected_actions: number; toctou_violations: number; payload_tampering_attempts: number; authentication_failures: number; cross_tenant_attempts: number; webhook_failures: number; idempotency_conflicts: number; execution_failures_timeouts: number; };
+export type TenantPosture = { tenant_id: string; active_principals: number; active_agents: number; active_delegations: number; action_volume: number; approval_volume: number; execution_volume: number; security_violations: number; high_risk_activity: number; };
+export type AuditVerify = { tenant_id: string; audit_integrity_status: string; total_requests_verified: number; violation_count: number; violations: Array<{ type: string; action_request_id: string; description?: string }>; };
 
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
   if (!API_BASE_URL) throw new Error("NEXT_PUBLIC_API_BASE_URL is not configured");
@@ -49,4 +52,7 @@ export const api = {
   scenarioRun: (key: string) => request<Record<string, unknown>>(`/api/v1/demo/scenarios/${key}/run`, { method: "POST" }),
   observabilityActionRequest: (id: string, tenantId: string) => request<ObservabilityActionDetail>(`/api/v1/observability/action-requests/${id}?tenant_id=${encodeURIComponent(tenantId)}`),
   timeline: (tenantId?: string) => request<{ total: number; events: TimelineEvent[] }>(`/api/v1/observability/timeline${tenantId ? `?tenant_id=${encodeURIComponent(tenantId)}` : ""}`),
+  metrics: (tenantId?: string) => request<ObservabilityMetrics>(`/api/v1/observability/metrics${tenantId ? `?tenant_id=${encodeURIComponent(tenantId)}` : ""}`),
+  tenantPosture: (tenantId?: string) => request<TenantPosture>(`/api/v1/observability/tenant/posture${tenantId ? `?tenant_id=${encodeURIComponent(tenantId)}` : ""}`),
+  auditVerify: (tenantId?: string) => request<AuditVerify>(`/api/v1/observability/audit/verify${tenantId ? `?tenant_id=${encodeURIComponent(tenantId)}` : ""}`),
 };

@@ -1,6 +1,8 @@
 # AgentOS
 
-AgentOS is an AI Action Governance and Control Plane that evaluates identity, delegated authority, risk, policy, and human approval before an AI-initiated action reaches the real world. External execution is intentionally disabled in the competition MVP.
+AgentOS is an AI Action Governance and Control Plane that evaluates identity, delegated authority, risk, policy, and human approval before an AI-initiated action is allowed, blocked, or escalated. Authorized high-risk actions execute only inside a sandbox provider (no real money movement); every execution is recorded in a FinancialExecution ledger and an audit trail.
+
+> **Canonical references:** `AGENTOS_OPERATING_PROMPT.md` (operating constitution) and `AGENTOS_STATE.md` (verified current state). Legacy competition-era docs are retained as historical and may contradict current runtime behavior.
 
 ## Development
 

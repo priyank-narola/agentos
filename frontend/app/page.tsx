@@ -62,7 +62,7 @@ export default function Home() {
       <aside className="border-b border-slate-200 bg-ink px-6 py-6 text-slate-300 lg:min-h-screen lg:w-64 lg:border-b-0 lg:border-r">
         <div className="mb-12 flex items-center gap-3 text-white"><span className="grid h-9 w-9 place-items-center rounded bg-signal text-sm font-bold">A</span><div><p className="font-semibold tracking-wide">AgentOS</p><p className="text-xs text-slate-400">AI Action Governance</p></div></div>
         <nav aria-label="Primary navigation" className="space-y-2">
-          {["Overview", ["Flagship demo", "/demo"], ["Runtime gateway", "/gateway"], ["Action requests", "/action-requests"], ["Approvals", "/approvals"], ["Agents", "/agents"], ["Tools", "/tools"], ["Resources", "/resources"], ["Policies", "/policies"], ["Policy evaluation", "/policy-evaluation"]].map((item, index) => {
+          {["Overview", ["Flagship demo", "/demo"], ["Runtime gateway", "/gateway"], ["Action requests", "/action-requests"], ["Approvals", "/approvals"], ["Observability", "/observability"], ["Agents", "/agents"], ["Tools", "/tools"], ["Resources", "/resources"], ["Policies", "/policies"], ["Policy evaluation", "/policy-evaluation"]].map((item, index) => {
             const label = Array.isArray(item) ? item[0] : item;
             const href = Array.isArray(item) ? item[1] : "/";
             return <Link key={label} href={href} className={`block rounded px-3 py-2.5 text-sm ${index === 0 ? "bg-white/10 text-white" : "text-slate-400 hover:bg-white/10 hover:text-white"}`}>{label}</Link>;
