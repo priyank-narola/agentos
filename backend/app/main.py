@@ -45,6 +45,22 @@ def well_known_mcp_metadata() -> dict[str, Any]:
     return get_mcp_protected_resource_metadata()
 
 
+@app.get("/.well-known/oauth-protected-resource", tags=["system"])
+def well_known_oauth_protected_resource() -> dict[str, Any]:
+    """RFC 9728-style OAuth protected-resource metadata.
+
+    Advertised to OAuth clients through the WWW-Authenticate
+    ``resource_metadata`` parameter emitted by the MCP token validator.
+    """
+    from app.config import settings
+    return {
+        "resource": "urn:agentos:mcp:action-gateway",
+        "authorization_servers": [settings.mcp_auth_issuer],
+        "scopes_supported": ["agentos:execute", "mcp:execute_action"],
+        "bearer_methods_supported": ["header"],
+    }
+
+
 @app.get("/health", tags=["system"])
 def health() -> dict[str, str]:
     return {"status": "ok", "service": "agentos-api"}

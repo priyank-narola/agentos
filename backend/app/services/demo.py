@@ -13,6 +13,7 @@ from app.db.models import (
     FinancialExecution, ExecutionState, DEFAULT_TENANT_ID
 )
 
+from app.config import settings
 from app.auth import TokenClaims
 from app.identity import AgentIdentityResolver, SecurityContext
 from app.schemas import GatewayRequestCreate, ApprovalActionRequest
@@ -190,8 +191,8 @@ class FinancialWorkflowDemoService:
             sub=requester.external_id,
             client_id=str(agent.id),
             scope="wire_transfer",
-            iss="https://auth.agentos.ai",
-            aud="https://api.agentos.ai",
+            iss=settings.mcp_auth_issuer,
+            aud=settings.mcp_auth_audience,
             exp=int(datetime.now(timezone.utc).timestamp()) + 3600,
             iat=int(datetime.now(timezone.utc).timestamp())
         )
