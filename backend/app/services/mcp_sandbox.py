@@ -37,22 +37,23 @@ class ExternalMCPSandboxClient:
         self.sandbox_provider = SandboxPaymentProvider()
 
     def _seed_treasury_entities(self) -> tuple:
-        """Seed TreasuryBot $25,000 wire transfer demo environment."""
-        tenant = Tenant(id=uuid.uuid4(), name="Global Treasury Corp", slug=f"gtc-{uuid.uuid4().hex[:6]}")
-        p_requester = Principal(id=uuid.uuid4(), tenant_id=tenant.id, type=PrincipalType.HUMAN, name="Alice Smith (Treasury Manager)", external_id=f"usr_alice_{uuid.uuid4().hex[:6]}", status=PrincipalStatus.ACTIVE)
-        p_approver = Principal(id=uuid.uuid4(), tenant_id=tenant.id, type=PrincipalType.HUMAN, name="Bob Jones (VP Finance)", external_id=f"usr_bob_{uuid.uuid4().hex[:6]}", status=PrincipalStatus.ACTIVE)
-        agent = Agent(id=uuid.uuid4(), tenant_id=tenant.id, name=f"TreasuryBot-v1-{uuid.uuid4().hex[:4]}", owner_principal_id=p_requester.id, purpose="Treasury Operations", version="1.0.0", risk_classification=RiskClassification.LOW, status=AgentStatus.ACTIVE)
-        delegation = Delegation(id=uuid.uuid4(), tenant_id=tenant.id, principal_id=p_requester.id, agent_id=agent.id, scope="wire_transfer", status=DelegationStatus.ACTIVE)
-        tool = Tool(id=uuid.uuid4(), tenant_id=tenant.id, name=f"treasury_tool_{uuid.uuid4().hex[:6]}", description="Corporate Treasury Wire Execution", status=CapabilityStatus.ACTIVE)
-        action = Action(id=uuid.uuid4(), tenant_id=tenant.id, tool_id=tool.id, name="wire_transfer", description="Outbound Corporate Wire Transfer", risk_level=RiskClassification.HIGH, status=CapabilityStatus.ACTIVE)
-        resource = Resource(id=uuid.uuid4(), tenant_id=tenant.id, resource_type="account", resource_key="ACC-TREASURY-01", sensitivity=ResourceSensitivity.HIGH, status=ResourceStatus.ACTIVE)
+        """Reuse the idempotent flagship treasury demo environment (W6).
 
-        policy = Policy(id=uuid.uuid4(), tenant_id=tenant.id, name="treasury_policy", version=1, status=PolicyStatus.ACTIVE)
-        rule = PolicyRule(id=uuid.uuid4(), policy_id=policy.id, effect=PolicyEffect.ALLOW, action="wire_transfer", resource_type="account", priority=1)
-
-        self.db.add_all([tenant, p_requester, p_approver, agent, delegation, tool, action, resource, policy, rule])
-        self.db.commit()
-        return tenant, p_requester, p_approver, agent, delegation, tool, action, resource, policy
+        Reusing the stable treasury-demo environment makes the CISO flow
+        repeatable: repeated runs create new action requests under the same
+        tenant/tool/principals instead of accumulating uncontrolled tenants and
+        tools on every run.
+        """
+        from app.services.demo import _provision_treasury_environment
+        tenant, requester, approver, agent, tool, action, resource, policy, _rule = _provision_treasury_environment(self.db)
+        delegation = self.db.scalar(
+            select(Delegation).where(
+                Delegation.principal_id == requester.id,
+                Delegation.agent_id == agent.id,
+                Delegation.tenant_id == tenant.id,
+            )
+        )
+        return tenant, requester, approver, agent, delegation, tool, action, resource, policy
 
     def run_ciso_demonstration_flow(self) -> dict[str, Any]:
         """
