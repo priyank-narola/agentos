@@ -17,6 +17,7 @@ from app.schemas import GatewayRequestCreate, ApprovalActionRequest
 from app.services.gateway import GatewayService, GatewayIdempotencyConflict
 from app.services.approval import ApprovalService, ApprovalConflictError
 from app.execution import SandboxPaymentProvider, ExecutionStatus
+from app.services.execution_ledger import persist_execution_result
 from app.financial import compute_payload_digest
 
 
@@ -68,6 +69,8 @@ class ScenarioEngine:
         )
         res = self.gateway.submit(req)
         exec_res = self.sandbox_provider.execute(res.action_request_id, req.parameters, req.idempotency_key, tenant_id=tenant.id)
+        persist_execution_result(self.db, action_request_id=res.action_request_id, tenant_id=tenant.id, result=exec_res, parameters=req.parameters)
+        self.db.commit()
 
         return {
             "scenario_key": "SCENARIO_A",
@@ -271,6 +274,8 @@ class ScenarioEngine:
         )
         res = self.gateway.submit(req)
         exec_res = self.sandbox_provider.execute(res.action_request_id, req.parameters, req.idempotency_key, tenant_id=tenant.id)
+        persist_execution_result(self.db, action_request_id=res.action_request_id, tenant_id=tenant.id, result=exec_res, parameters=req.parameters)
+        self.db.commit()
 
         return {
             "scenario_key": "SCENARIO_G",
@@ -300,6 +305,8 @@ class ScenarioEngine:
         )
         res1 = self.gateway.submit(req1)
         exec1 = self.sandbox_provider.execute(res1.action_request_id, req1.parameters, idem_key, tenant_id=tenant.id)
+        persist_execution_result(self.db, action_request_id=res1.action_request_id, tenant_id=tenant.id, result=exec1, parameters=req1.parameters)
+        self.db.commit()
 
         # Duplicate attempt with same idempotency key
         exec2 = self.sandbox_provider.execute(res1.action_request_id, req1.parameters, idem_key, tenant_id=tenant.id)
