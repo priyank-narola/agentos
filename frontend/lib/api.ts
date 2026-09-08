@@ -12,6 +12,11 @@ export type RiskFactor = { code: string; contribution: number; explanation: stri
 export type GatewayResponse = { action_request_id: string; gateway_status: "AUTHORIZED" | "BLOCKED" | "PENDING_APPROVAL"; decision: "ALLOW" | "DENY" | "REQUIRE_APPROVAL"; reason_code: string; reason: string; risk_level?: "LOW" | "MEDIUM" | "HIGH" | null; risk_score?: number | null; risk_classification?: "LOW" | "MEDIUM" | "HIGH" | "CRITICAL" | null; risk_factors: RiskFactor[]; risk_engine_version?: string | null; approval_required: boolean; execution_status: "NOT_EXECUTED"; requested_at: string; decided_at: string; };
 export type ActionRequest = { id: string; agent_id: string; agent_name: string; principal_id: string; action_id: string; action_name: string; tool_id: string; tool_name: string; resource_id: string; resource_type: string; resource_key: string; parameters: Record<string, unknown>; status: string; idempotency_key: string; requested_at: string; decision?: string | null; reason?: string | null; reason_code?: string | null; risk_level?: "LOW" | "MEDIUM" | "HIGH" | null; risk_score?: number | null; risk_classification?: "LOW" | "MEDIUM" | "HIGH" | "CRITICAL" | null; risk_factors: RiskFactor[]; risk_engine_version?: string | null; decided_at?: string | null; };
 export type Approval = { id: string; action_request_id: string; agent_id: string; agent_name: string; principal_id: string; action_id: string; action_name: string; tool_id: string; tool_name: string; resource_id: string; resource_type: string; resource_key: string; parameters: Record<string, unknown>; requested_by: string; status: "PENDING" | "APPROVED" | "REJECTED" | "EXPIRED" | "CANCELLED"; reason: string; risk_score?: number | null; risk_classification?: "LOW" | "MEDIUM" | "HIGH" | "CRITICAL" | null; risk_factors: RiskFactor[]; policy_id?: string | null; policy_version?: number | null; decided_by?: string | null; decided_at?: string | null; requested_at: string; expires_at: string; };
+export type Principal = { id: string; type: "HUMAN" | "ORGANIZATION"; name: string; external_id: string; status: "ACTIVE" | "SUSPENDED" | "RETIRED"; created_at: string; updated_at: string; };
+export type ApproverCandidate = { id: string; name: string; external_id: string; type: string; };
+export type TreasuryManifest = { tenant_id: string; tenant_name: string; sandbox_only: boolean; requester: { id: string; name: string; external_id: string; title: string }; approver: { id: string; name: string; external_id: string; title: string }; agent: { id: string; name: string; purpose: string }; action: { id: string; name: string; risk_level: string }; resource: { id: string; resource_type: string; resource_key: string; sensitivity: string }; policy: { id: string; name: string; version: number }; default_amount: string; default_currency: string; };
+export type ObservabilityActionDetail = { action_request_id: string; tenant_id: string; gateway_status: string; risk: { score?: number | null; classification?: string | null }; policy: { decision?: string | null; reason_code?: string | null; reason?: string | null }; approval: { required: boolean; status?: string | null; requested_by?: string | null; decided_by?: string | null; decided_at?: string | null }; execution: { status?: string | null; provider_transaction_id?: string | null; provider_name?: string | null }; requested_at?: string | null; };
+export type TimelineEvent = { id: string; event_type: string; actor_type: string; actor_id: string | null; action_request_id: string | null; event_data: Record<string, unknown>; created_at: string | null; };
 
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
   if (!API_BASE_URL) throw new Error("NEXT_PUBLIC_API_BASE_URL is not configured");
@@ -21,6 +26,7 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
 }
 
 export const api = {
+  principals: () => request<Principal[]>("/api/v1/principals"),
   agents: () => request<Agent[]>("/api/v1/agents"),
   agent: (id: string) => request<Agent>(`/api/v1/agents/${id}`),
   tools: () => request<Tool[]>("/api/v1/tools"),
@@ -33,7 +39,12 @@ export const api = {
   actionRequest: (id: string) => request<ActionRequest>(`/api/v1/action-requests/${id}`),
   approvals: () => request<Approval[]>("/api/v1/approvals"),
   approval: (id: string) => request<Approval>(`/api/v1/approvals/${id}`),
+  approvers: (id: string) => request<{ approval_id: string; approvers: ApproverCandidate[] }>(`/api/v1/approvals/${id}/approvers`),
   approve: (id: string, approver_principal_id: string) => request<Approval>(`/api/v1/approvals/${id}/approve`, { method: "POST", body: JSON.stringify({ approver_principal_id }) }),
   reject: (id: string, approver_principal_id: string) => request<Approval>(`/api/v1/approvals/${id}/reject`, { method: "POST", body: JSON.stringify({ approver_principal_id }) }),
   cancel: (id: string, approver_principal_id: string) => request<Approval>(`/api/v1/approvals/${id}/cancel`, { method: "POST", body: JSON.stringify({ approver_principal_id }) }),
+  treasuryBootstrap: () => request<TreasuryManifest>("/api/v1/demo/treasury/bootstrap", { method: "POST" }),
+  scenarioRun: (key: string) => request<Record<string, unknown>>(`/api/v1/demo/scenarios/${key}/run`, { method: "POST" }),
+  observabilityActionRequest: (id: string, tenantId: string) => request<ObservabilityActionDetail>(`/api/v1/observability/action-requests/${id}?tenant_id=${encodeURIComponent(tenantId)}`),
+  timeline: (tenantId?: string) => request<{ total: number; events: TimelineEvent[] }>(`/api/v1/observability/timeline${tenantId ? `?tenant_id=${encodeURIComponent(tenantId)}` : ""}`),
 };

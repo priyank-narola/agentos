@@ -1,4 +1,5 @@
 from uuid import UUID
+from typing import Any
 
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
@@ -26,6 +27,19 @@ def get_approval(approval_id: UUID, approvals: ApprovalService = Depends(service
     if approval is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Approval request not found")
     return approval
+
+
+@router.get("/{approval_id}/approvers", response_model=dict[str, Any])
+def list_eligible_approvers(approval_id: UUID, approvals: ApprovalService = Depends(service)) -> dict[str, Any]:
+    """Return ACTIVE human principals in the approval's tenant who are eligible to
+    decide this approval under separation of duties (never the requester)."""
+    approval = approvals.get(approval_id)
+    if approval is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Approval request not found")
+    return {
+        "approval_id": str(approval_id),
+        "approvers": approvals.eligible_approvers(approval_id),
+    }
 
 
 def transition(operation):

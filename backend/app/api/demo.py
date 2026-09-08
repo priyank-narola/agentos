@@ -4,9 +4,24 @@ from sqlalchemy.orm import Session
 
 from app.db.session import get_db
 
-from app.services.demo import FinancialWorkflowDemoService
+from app.services.demo import FinancialWorkflowDemoService, treasury_demo_manifest
 
 router = APIRouter(prefix="/api/v1/demo", tags=["demo"])
+
+
+@router.post("/treasury/bootstrap")
+def bootstrap_treasury_demo(
+    db: Session = Depends(get_db)
+) -> dict[str, Any]:
+    """
+    Provision (or idempotently reuse) the flagship treasury demo environment:
+    Global Treasury Corp tenant with Alice Smith (requester), Bob Jones
+    (approver), TreasuryBot-v1 agent, wire_transfer action, and the sandbox
+    treasury account. Returns a manifest of identities and targets for the UI.
+    Idempotent: repeated calls reuse the existing environment and never create
+    duplicate tenants, tools, principals, or actions.
+    """
+    return treasury_demo_manifest(db)
 
 
 @router.post("/financial-workflow")

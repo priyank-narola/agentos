@@ -13,7 +13,7 @@ from app.db.models import (
     Delegation, DelegationStatus, Tool, Action, CapabilityStatus, Resource,
     ResourceStatus, ResourceSensitivity, RiskClassification, Policy, PolicyStatus,
     PolicyRule, PolicyEffect, ActionRequest, ActionRequestStatus, ApprovalRequest,
-    ApprovalStatus, AuditEvent, ActorType, FinancialExecution, ExecutionState
+    ApprovalStatus, AuditEvent, ActorType, Decision, DecisionType, FinancialExecution, ExecutionState
 )
 from app.main import app
 from app.services.observability import ObservabilityService
@@ -217,7 +217,6 @@ def test_audit_integrity_verification_payload_digest_mismatch(db_session):
 
 def test_observability_apis_strictly_read_only():
     """8. Verify all observability endpoints operate strictly via GET and do not mutate state."""
-    # Attempt POST/PATCH/DELETE on observability endpoints -> 405 Method Not Allowed
     routes = [
         "/api/v1/observability/timeline",
         "/api/v1/observability/metrics",
@@ -229,3 +228,61 @@ def test_observability_apis_strictly_read_only():
         assert client.post(route, json={}).status_code == 405
         assert client.patch(route, json={}).status_code == 405
         assert client.delete(route).status_code == 405
+
+
+def test_tenant_security_posture_high_risk_activity_uses_valid_risk_enum(db_session):
+    """9. Tenant posture must aggregate high-risk activity without referencing a
+    non-existent CRITICAL risk classification (regression for the HTTP 500)."""
+    t = Tenant(id=uuid.uuid4(), name="Posture Corp", slug=f"posture-{uuid.uuid4().hex[:6]}")
+    p = Principal(id=uuid.uuid4(), tenant_id=t.id, type=PrincipalType.HUMAN, name="Alice", external_id="usr_posture", status=PrincipalStatus.ACTIVE)
+    a = Agent(id=uuid.uuid4(), tenant_id=t.id, name="PostureAgent", owner_principal_id=p.id, purpose="Fin", version="1.0", risk_classification=RiskClassification.LOW, status=AgentStatus.ACTIVE)
+    tool = Tool(id=uuid.uuid4(), tenant_id=t.id, name="posture_tool", description="desc", status=CapabilityStatus.ACTIVE)
+    high = Action(id=uuid.uuid4(), tenant_id=t.id, tool_id=tool.id, name="wire_transfer", description="desc", risk_level=RiskClassification.HIGH, status=CapabilityStatus.ACTIVE)
+    low = Action(id=uuid.uuid4(), tenant_id=t.id, tool_id=tool.id, name="vendor_payout", description="desc", risk_level=RiskClassification.LOW, status=CapabilityStatus.ACTIVE)
+    res = Resource(id=uuid.uuid4(), tenant_id=t.id, resource_type="account", resource_key="ACC-P1", sensitivity=ResourceSensitivity.HIGH, status=ResourceStatus.ACTIVE)
+    req_high = ActionRequest(id=uuid.uuid4(), tenant_id=t.id, principal_id=p.id, agent_id=a.id, action_id=high.id, resource_id=res.id, parameters={"amount": "25000.00"}, status=ActionRequestStatus.COMPLETED, idempotency_key=f"idem-{uuid.uuid4()}")
+    req_low = ActionRequest(id=uuid.uuid4(), tenant_id=t.id, principal_id=p.id, agent_id=a.id, action_id=low.id, resource_id=res.id, parameters={"amount": "5.00"}, status=ActionRequestStatus.COMPLETED, idempotency_key=f"idem-{uuid.uuid4()}")
+    db_session.add_all([t, p, a, tool, high, low, res, req_high, req_low])
+    db_session.commit()
+
+    service = ObservabilityService(db_session)
+    posture = service.get_tenant_security_posture(tenant_id=t.id)
+
+    assert posture["high_risk_activity"] == 1
+    assert posture["action_volume"] == 2
+    assert posture["active_agents"] == 1
+
+    # Test modules mutate the shared get_db override at import time; re-assert the
+    # module override so the HTTP assertion targets this module's SQLite engine.
+    app.dependency_overrides[get_db] = override_get_db
+    response = client.get(f"/api/v1/observability/tenant/posture?tenant_id={t.id}")
+    assert response.status_code == 200
+    assert response.json()["high_risk_activity"] == 1
+
+
+def test_action_request_detail_derives_decision_reason_code(db_session):
+    """10. Action-request observability detail must derive reason code/reason from the
+    persisted Decision (regression: Decision has no reason_code attribute)."""
+    t = Tenant(id=uuid.uuid4(), name="Detail Corp", slug=f"detail-{uuid.uuid4().hex[:6]}")
+    p = Principal(id=uuid.uuid4(), tenant_id=t.id, type=PrincipalType.HUMAN, name="Alice", external_id="usr_detail", status=PrincipalStatus.ACTIVE)
+    a = Agent(id=uuid.uuid4(), tenant_id=t.id, name="DetailAgent", owner_principal_id=p.id, purpose="Fin", version="1.0", risk_classification=RiskClassification.LOW, status=AgentStatus.ACTIVE)
+    tool = Tool(id=uuid.uuid4(), tenant_id=t.id, name="detail_tool", description="desc", status=CapabilityStatus.ACTIVE)
+    action = Action(id=uuid.uuid4(), tenant_id=t.id, tool_id=tool.id, name="wire_transfer", description="desc", risk_level=RiskClassification.HIGH, status=CapabilityStatus.ACTIVE)
+    resource = Resource(id=uuid.uuid4(), tenant_id=t.id, resource_type="account", resource_key="ACC-DET", sensitivity=ResourceSensitivity.HIGH, status=ResourceStatus.ACTIVE)
+    req = ActionRequest(id=uuid.uuid4(), tenant_id=t.id, principal_id=p.id, agent_id=a.id, action_id=action.id, resource_id=resource.id, parameters={"amount": "25000.00"}, status=ActionRequestStatus.APPROVAL_PENDING, idempotency_key=f"idem-{uuid.uuid4()}")
+    decision = Decision(action_request_id=req.id, tenant_id=t.id, decision=DecisionType.REQUIRE_APPROVAL, reason="HIGH_RISK_APPROVAL: Policy allows the action but its high risk requires approval", risk_score=75)
+    db_session.add_all([t, p, a, tool, action, resource, req, decision])
+    db_session.commit()
+
+    service = ObservabilityService(db_session)
+    detail = service.get_action_request_detail(tenant_id=t.id, request_id=req.id)
+    assert detail is not None
+    assert detail["policy"]["decision"] == "REQUIRE_APPROVAL"
+    assert detail["policy"]["reason_code"] == "HIGH_RISK_APPROVAL"
+    assert "high risk requires approval" in detail["policy"]["reason"]
+
+    app.dependency_overrides[get_db] = override_get_db
+    response = client.get(f"/api/v1/observability/action-requests/{req.id}?tenant_id={t.id}")
+    assert response.status_code == 200
+    body = response.json()
+    assert body["policy"]["reason_code"] == "HIGH_RISK_APPROVAL"

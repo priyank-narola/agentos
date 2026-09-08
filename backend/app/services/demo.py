@@ -22,6 +22,147 @@ from app.execution import SandboxPaymentProvider, ExecutionStatus
 from app.financial import compute_payload_digest
 
 
+TREASURY_TENANT_SLUG = "treasury-demo"
+TREASURY_TOOL_NAME = "treasury_wire_tool"
+TREASURY_AGENT_NAME = "TreasuryBot-v1"
+TREASURY_RESOURCE_KEY = "ACC-TREASURY-01"
+
+
+def _provision_treasury_environment(db) -> tuple:
+    """Provision (or idempotently reuse) the flagship treasury demo environment.
+
+    Stable identifiers are used so repeated demo runs never collide on global
+    unique keys (e.g. tools.name) and never duplicate tenants/principals/agents.
+    A second call returns the existing environment unchanged.
+    """
+    tenant = db.scalar(select(Tenant).where(Tenant.slug == TREASURY_TENANT_SLUG))
+    if tenant is None:
+        tenant = Tenant(id=uuid.uuid4(), name="Global Treasury Corp", slug=TREASURY_TENANT_SLUG)
+        db.add(tenant)
+        db.flush()
+
+    def get_or_create(model, filters, factory):
+        existing = db.scalar(select(model).where(*filters))
+        if existing is not None:
+            return existing
+        record = factory()
+        db.add(record)
+        db.flush()
+        return record
+
+    requester = get_or_create(
+        Principal,
+        [Principal.tenant_id == tenant.id, Principal.external_id == "treasury_alice"],
+        lambda: Principal(
+            id=uuid.uuid4(), tenant_id=tenant.id, type=PrincipalType.HUMAN,
+            name="Alice Smith", external_id="treasury_alice", status=PrincipalStatus.ACTIVE,
+        ),
+    )
+    approver = get_or_create(
+        Principal,
+        [Principal.tenant_id == tenant.id, Principal.external_id == "treasury_bob"],
+        lambda: Principal(
+            id=uuid.uuid4(), tenant_id=tenant.id, type=PrincipalType.HUMAN,
+            name="Bob Jones", external_id="treasury_bob", status=PrincipalStatus.ACTIVE,
+        ),
+    )
+    agent = get_or_create(
+        Agent,
+        [Agent.tenant_id == tenant.id, Agent.name == TREASURY_AGENT_NAME],
+        lambda: Agent(
+            id=uuid.uuid4(), tenant_id=tenant.id, name=TREASURY_AGENT_NAME,
+            description="Automated Payout Agent", owner_principal_id=requester.id,
+            purpose="Enterprise Vendor Payouts", version="1.0.0",
+            risk_classification=RiskClassification.LOW, status=AgentStatus.ACTIVE,
+        ),
+    )
+    tool = get_or_create(
+        Tool,
+        [Tool.name == TREASURY_TOOL_NAME],
+        lambda: Tool(
+            id=uuid.uuid4(), tenant_id=tenant.id, name=TREASURY_TOOL_NAME,
+            description="Treasury Wire Execution Tool", status=CapabilityStatus.ACTIVE,
+        ),
+    )
+    action = get_or_create(
+        Action,
+        [Action.tenant_id == tenant.id, Action.tool_id == tool.id, Action.name == "wire_transfer"],
+        lambda: Action(
+            id=uuid.uuid4(), tenant_id=tenant.id, tool_id=tool.id, name="wire_transfer",
+            description="Outbound corporate wire transfer",
+            risk_level=RiskClassification.HIGH, status=CapabilityStatus.ACTIVE,
+        ),
+    )
+    resource = get_or_create(
+        Resource,
+        [Resource.tenant_id == tenant.id, Resource.resource_type == "account", Resource.resource_key == TREASURY_RESOURCE_KEY],
+        lambda: Resource(
+            id=uuid.uuid4(), tenant_id=tenant.id, resource_type="account",
+            resource_key=TREASURY_RESOURCE_KEY, sensitivity=ResourceSensitivity.HIGH,
+            status=ResourceStatus.ACTIVE,
+        ),
+    )
+    policy = get_or_create(
+        Policy,
+        [Policy.tenant_id == tenant.id, Policy.name == "Treasury Wire Transfer Policy", Policy.version == 1],
+        lambda: Policy(
+            id=uuid.uuid4(), tenant_id=tenant.id, name="Treasury Wire Transfer Policy",
+            version=1, priority=1, status=PolicyStatus.ACTIVE,
+        ),
+    )
+    rule = db.scalar(
+        select(PolicyRule).where(
+            PolicyRule.policy_id == policy.id,
+            PolicyRule.action == "wire_transfer",
+            PolicyRule.resource_type == "account",
+        )
+    )
+    if rule is None:
+        rule = PolicyRule(
+            id=uuid.uuid4(), policy_id=policy.id, effect=PolicyEffect.ALLOW,
+            action="wire_transfer", resource_type="account", priority=1,
+        )
+        db.add(rule)
+        db.flush()
+
+    existing_delegation = db.scalar(
+        select(Delegation).where(
+            Delegation.principal_id == requester.id,
+            Delegation.agent_id == agent.id,
+            Delegation.tenant_id == tenant.id,
+        )
+    )
+    if existing_delegation is None:
+        db.add(Delegation(
+            id=uuid.uuid4(), tenant_id=tenant.id, principal_id=requester.id, agent_id=agent.id,
+            scope="wire_transfer", status=DelegationStatus.ACTIVE,
+            issued_at=datetime.now(timezone.utc),
+        ))
+        db.flush()
+
+    db.commit()
+    return tenant, requester, approver, agent, tool, action, resource, policy, rule
+
+
+def treasury_demo_manifest(db) -> dict[str, Any]:
+    """Return the flagship demo environment manifest (identities + targets)."""
+    tenant, requester, approver, agent, tool, action, resource, policy, rule = _provision_treasury_environment(db)
+    return {
+        "tenant_id": str(tenant.id),
+        "tenant_name": tenant.name,
+        "sandbox_only": True,
+        "requester": {"id": str(requester.id), "name": requester.name, "external_id": requester.external_id, "title": "Treasury Manager"},
+        "approver": {"id": str(approver.id), "name": approver.name, "external_id": approver.external_id, "title": "VP Finance"},
+        "agent": {"id": str(agent.id), "name": agent.name, "purpose": agent.purpose},
+        "action": {"id": str(action.id), "name": action.name, "risk_level": action.risk_level.value if hasattr(action.risk_level, "value") else str(action.risk_level)},
+        "resource": {"id": str(resource.id), "resource_type": resource.resource_type, "resource_key": resource.resource_key,
+                     "sensitivity": resource.sensitivity.value if hasattr(resource.sensitivity, "value") else str(resource.sensitivity)},
+        "policy": {"id": str(policy.id), "name": policy.name, "version": policy.version},
+        "default_amount": "25000.00",
+        "default_currency": "USD",
+    }
+
+
 class FinancialWorkflowDemoService:
     """
     Production-Style Sandbox Financial Workflow Engine for AgentOS.
@@ -41,90 +182,8 @@ class FinancialWorkflowDemoService:
         Executes the complete $25,000 USD enterprise wire transfer workflow demo.
         Returns a structured evidence report detailing every step of the workflow.
         """
-        # 1. Provision Multi-Tenant Enterprise Environment
-        tenant = Tenant(
-            id=uuid.uuid4(),
-            name="Acme Enterprise Corp",
-            slug=f"acme-corp-{uuid.uuid4().hex[:6]}"
-        )
-        requester = Principal(
-            id=uuid.uuid4(),
-            tenant_id=tenant.id,
-            type=PrincipalType.HUMAN,
-            name="Alice Smith (Treasury Mgr)",
-            external_id=f"auth0|alice_{uuid.uuid4().hex[:6]}",
-            status=PrincipalStatus.ACTIVE
-        )
-        approver = Principal(
-            id=uuid.uuid4(),
-            tenant_id=tenant.id,
-            type=PrincipalType.HUMAN,
-            name="Bob Jones (VP Finance)",
-            external_id=f"auth0|bob_{uuid.uuid4().hex[:6]}",
-            status=PrincipalStatus.ACTIVE
-        )
-        agent = Agent(
-            id=uuid.uuid4(),
-            tenant_id=tenant.id,
-            name="TreasuryBot-v1",
-            description="Automated Payout Agent",
-            owner_principal_id=requester.id,
-            purpose="Enterprise Vendor Payouts",
-            version="1.0.0",
-            risk_classification=RiskClassification.LOW,
-            status=AgentStatus.ACTIVE
-        )
-        delegation = Delegation(
-            id=uuid.uuid4(),
-            tenant_id=tenant.id,
-            principal_id=requester.id,
-            agent_id=agent.id,
-            scope="wire_transfer",
-            status=DelegationStatus.ACTIVE,
-            issued_at=datetime.now(timezone.utc)
-        )
-        tool = Tool(
-            id=uuid.uuid4(),
-            tenant_id=tenant.id,
-            name="enterprise_wire_tool",
-            description="Enterprise Payment Gateway Tool",
-            status=CapabilityStatus.ACTIVE
-        )
-        action = Action(
-            id=uuid.uuid4(),
-            tenant_id=tenant.id,
-            tool_id=tool.id,
-            name="wire_transfer",
-            description="Execute enterprise wire transfer",
-            risk_level=RiskClassification.HIGH,
-            status=CapabilityStatus.ACTIVE
-        )
-        resource = Resource(
-            id=uuid.uuid4(),
-            tenant_id=tenant.id,
-            resource_type="account",
-            resource_key="ACC-TREASURY-01",
-            sensitivity=ResourceSensitivity.HIGH,
-            status=ResourceStatus.ACTIVE
-        )
-        policy = Policy(
-            id=uuid.uuid4(),
-            tenant_id=tenant.id,
-            name="Enterprise Wire Transfer Policy",
-            version=1,
-            status=PolicyStatus.ACTIVE
-        )
-        rule = PolicyRule(
-            id=uuid.uuid4(),
-            policy_id=policy.id,
-            effect=PolicyEffect.ALLOW,
-            action="wire_transfer",
-            resource_type="account",
-            priority=1
-        )
-
-        self.db.add_all([tenant, requester, approver, agent, delegation, tool, action, resource, policy, rule])
-        self.db.commit()
+        # 1. Provision (or idempotently reuse) the flagship treasury demo environment.
+        tenant, requester, approver, agent, tool, action, resource, policy, _rule = _provision_treasury_environment(self.db)
 
         # 2. Authentication & Identity Context Resolution
         claims = TokenClaims(

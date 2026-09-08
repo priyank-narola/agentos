@@ -293,6 +293,7 @@ class Decision(Base):
     __table_args__ = (Index("ix_decisions_action_request_decided_at", "action_request_id", "decided_at"),)
 
     id: Mapped[uuid.UUID] = mapped_column(Uuid(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    tenant_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("tenants.id", ondelete="RESTRICT"), nullable=False)
     action_request_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("action_requests.id", ondelete="RESTRICT"), nullable=False)
     decision: Mapped[DecisionType] = mapped_column(enum_type(DecisionType), nullable=False)
     reason: Mapped[str] = mapped_column(Text, nullable=False)
@@ -300,6 +301,7 @@ class Decision(Base):
     policy_version: Mapped[int | None] = mapped_column(Integer)
     risk_score: Mapped[Decimal | None] = mapped_column(Numeric(5, 2))
     decided_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), nullable=False)
+    tenant: Mapped[Tenant] = relationship()
     action_request: Mapped[ActionRequest] = relationship(back_populates="decisions")
     policy: Mapped[Policy | None] = relationship()
     audit_events: Mapped[list["AuditEvent"]] = relationship(back_populates="decision")

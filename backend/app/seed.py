@@ -6,6 +6,8 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.db.models import (
+    Tenant,
+    DEFAULT_TENANT_ID,
     Action,
     Agent,
     CapabilityStatus,
@@ -30,6 +32,12 @@ def _first(session: Session, model, **filters):
 
 
 def seed_demo(session: Session) -> dict[str, int]:
+    # Bootstrap the default tenant referenced by model-level tenant_id defaults.
+    # Idempotent: repeated seeding must not create duplicate tenants.
+    if session.get(Tenant, DEFAULT_TENANT_ID) is None:
+        session.add(Tenant(id=DEFAULT_TENANT_ID, name="Default Demo Tenant", slug="default-demo-tenant", status="ACTIVE"))
+        session.flush()
+
     principal = _first(session, Principal, type=PrincipalType.HUMAN, external_id="demo-admin")
     if principal is None:
         principal = Principal(name="Demo Admin", type=PrincipalType.HUMAN, external_id="demo-admin", status=PrincipalStatus.ACTIVE)

@@ -6,7 +6,7 @@ from sqlalchemy.orm import Session
 
 from app.db.models import (
     ActionRequestStatus, ApprovalRequest, ApprovalStatus, AuditEvent, ActorType, Decision, DecisionType,
-    Principal, PrincipalStatus, Agent, AgentStatus, Delegation, DelegationStatus, Resource, ResourceStatus,
+    Principal, PrincipalStatus, PrincipalType, Agent, AgentStatus, Delegation, DelegationStatus, Resource, ResourceStatus,
     Action, CapabilityStatus, Tool
 )
 from app.repositories.approval import ApprovalRepository
@@ -15,6 +15,7 @@ from app.services.errors import RegistryConflictError, RegistryValidationError
 
 from app.financial import compute_payload_digest
 from app.execution import SandboxPaymentProvider, ExecutionStatus
+from app.services.execution_ledger import persist_execution_result
 
 
 
@@ -36,6 +37,41 @@ class ApprovalService:
     def get(self, approval_id: UUID) -> ApprovalDetailSchema | None:
         item = self.repository.get(approval_id)
         return self._detail(item) if item else None
+
+    def eligible_approvers(self, approval_id: UUID) -> "list[dict]":
+        """Return ACTIVE human principals in the approval's tenant who are not the
+        requester (SoD-eligible approver candidates).
+
+        The candidate list is presentation/UX only: the approve endpoint still
+        independently enforces active status, tenant membership, and separation of
+        duties against the actor it receives. Tenant is derived server-side from
+        the approval record; no client-supplied tenant is trusted.
+        """
+        approval = self.repository.get(approval_id)
+        if approval is None:
+            return []
+        requester_ids = {approval.requested_by}
+        if approval.action_request is not None:
+            requester_ids.add(approval.action_request.principal_id)
+        principals = list(self.db.scalars(
+            select(Principal)
+            .where(
+                Principal.tenant_id == approval.tenant_id,
+                Principal.status == PrincipalStatus.ACTIVE,
+                Principal.type == PrincipalType.HUMAN,
+            )
+            .order_by(Principal.name)
+        ).all())
+        return [
+            {
+                "id": str(principal.id),
+                "name": principal.name,
+                "external_id": principal.external_id,
+                "type": principal.type.value if hasattr(principal.type, "value") else str(principal.type),
+            }
+            for principal in principals
+            if principal.id not in requester_ids
+        ]
 
     def create_for_request(self, request: ApprovalRequest, now: datetime | None = None) -> ApprovalRequest:
         with self.db.no_autoflush:
@@ -259,6 +295,7 @@ class ApprovalService:
         )
         decision = Decision(
             action_request_id=request.id,
+            tenant_id=approval.tenant_id,
             decision=DecisionType.ALLOW,
             reason=reason_msg,
             policy_id=original.policy_id,
@@ -267,6 +304,7 @@ class ApprovalService:
         )
         self.db.add(decision)
         self.db.flush()
+        persist_execution_result(self.db, action_request_id=request.id, tenant_id=approval.tenant_id, result=exec_res, parameters=request.parameters)
 
         event_name = "EXECUTION_SUCCEEDED" if exec_res.status == ExecutionStatus.EXECUTION_SUCCEEDED else "EXECUTION_FAILED"
         self._audit(event_name, actor_id, approval, {
@@ -289,7 +327,7 @@ class ApprovalService:
         request.status = ActionRequestStatus.REJECTED
         original = self._original_decision(request)
         digest = compute_payload_digest(request.parameters)
-        decision = Decision(action_request_id=request.id, decision=DecisionType.BLOCK, reason=f"{event_type}: {reason}", policy_id=original.policy_id, policy_version=original.policy_version, risk_score=original.risk_score)
+        decision = Decision(action_request_id=request.id, tenant_id=approval.tenant_id, decision=DecisionType.BLOCK, reason=f"{event_type}: {reason}", policy_id=original.policy_id, policy_version=original.policy_version, risk_score=original.risk_score)
         self.db.add(decision)
         self.db.flush()
         self._audit(event_type, actor_id or approval.requested_by, approval, {

@@ -17,6 +17,7 @@ from app.services.approval import ApprovalService
 
 from app.financial import validate_financial_action_parameters, compute_payload_digest, FinancialValidationError
 from app.execution import SandboxPaymentProvider, ExecutionStatus
+from app.services.execution_ledger import persist_execution_result
 
 
 class GatewayIdempotencyConflict(RegistryConflictError):
@@ -91,7 +92,7 @@ class GatewayService:
         decision_value = DecisionType.ALLOW if result.decision == "ALLOW" else DecisionType.BLOCK if result.decision == "DENY" else DecisionType.REQUIRE_APPROVAL
         request.status = ActionRequestStatus.APPROVAL_PENDING if result.decision == "REQUIRE_APPROVAL" else ActionRequestStatus.EVALUATED
         matched = result.matched_policies[0] if result.matched_policies else None
-        decision = Decision(action_request_id=request.id, decision=decision_value, reason=f"{result.reason_code}: {result.reason}", policy_id=matched.policy_id if matched else None, policy_version=matched.policy_version if matched else None, risk_score=risk.score)
+        decision = Decision(action_request_id=request.id, tenant_id=tenant_id, decision=decision_value, reason=f"{result.reason_code}: {result.reason}", policy_id=matched.policy_id if matched else None, policy_version=matched.policy_version if matched else None, risk_score=risk.score)
         self.db.add(decision)
         self.db.flush()
 
@@ -115,6 +116,7 @@ class GatewayService:
             exec_res = self.execution_provider.execute(request.id, clean_params, payload.idempotency_key, tenant_id=tenant_id)
             exec_status = exec_res.status.value
             event_name = "EXECUTION_SUCCEEDED" if exec_res.status == ExecutionStatus.EXECUTION_SUCCEEDED else "EXECUTION_FAILED"
+            persist_execution_result(self.db, action_request_id=request.id, tenant_id=tenant_id, result=exec_res, parameters=clean_params)
             self._audit(event_name, principal.id, agent.id, request.id, decision.id, {
                 "execution_id": exec_res.execution_id,
                 "status": exec_res.status.value,

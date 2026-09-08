@@ -125,7 +125,8 @@ class ObservabilityService:
             },
             "policy": {
                 "decision": policy_decision.decision.value if (policy_decision and hasattr(policy_decision.decision, "value")) else ("ALLOW" if policy_decision else "UNKNOWN"),
-                "reason_code": policy_decision.reason_code if policy_decision else None
+                "reason_code": (policy_decision.reason.partition(": ")[0] or policy_decision.reason) if policy_decision else None,
+                "reason": (policy_decision.reason.partition(": ")[2] or policy_decision.reason) if policy_decision else None
             },
             "approval": {
                 "required": approval_req is not None,
@@ -153,7 +154,7 @@ class ObservabilityService:
 
         approved_executions = self.db.scalar(
             select(func.count(FinancialExecution.id))
-            .where(and_(FinancialExecution.tenant_id == tenant_id, FinancialExecution.status.in_([ExecutionState.SUCCEEDED, "EXECUTION_SUCCEEDED"])))
+            .where(and_(FinancialExecution.tenant_id == tenant_id, FinancialExecution.status == ExecutionState.SUCCEEDED))
         ) or 0
 
 
@@ -196,7 +197,7 @@ class ObservabilityService:
 
         execution_failures = self.db.scalar(
             select(func.count(FinancialExecution.id))
-            .where(and_(FinancialExecution.tenant_id == tenant_id, FinancialExecution.status.in_([ExecutionState.FAILED, ExecutionState.UNKNOWN, "FAILED", "TIMEOUT", "EXECUTION_FAILED"])))
+            .where(and_(FinancialExecution.tenant_id == tenant_id, FinancialExecution.status.in_([ExecutionState.FAILED, ExecutionState.UNKNOWN])))
         ) or 0
 
 
@@ -222,7 +223,7 @@ class ObservabilityService:
             select(ActionRequest)
             .where(ActionRequest.tenant_id == tenant_id)
             .options(joinedload(ActionRequest.action), joinedload(ActionRequest.decisions))
-        ).all())
+        ).unique().all())
 
         risk_counts = {"LOW": 0, "MEDIUM": 0, "HIGH": 0, "CRITICAL": 0}
         highest_risk_actions = []
@@ -236,10 +237,10 @@ class ObservabilityService:
 
             if risk_level in ["HIGH", "CRITICAL"]:
                 highest_risk_actions.append({"id": str(req.id), "action": req.action.name if req.action else None, "risk_level": risk_level, "requested_at": req.requested_at.isoformat() if req.requested_at else None})
-                if req.status == ActionRequestStatus.BLOCKED:
+                if req.status == ActionRequestStatus.REJECTED:
                     rejected_high_risk_actions.append({"id": str(req.id), "action": req.action.name if req.action else None, "risk_level": risk_level})
 
-            if req.status == ActionRequestStatus.PENDING_APPROVAL:
+            if req.status == ActionRequestStatus.APPROVAL_PENDING:
                 approval_required_actions.append({"id": str(req.id), "action": req.action.name if req.action else None, "risk_level": risk_level})
 
         return {
@@ -275,7 +276,7 @@ class ObservabilityService:
         ) or 0
 
         rejected_action_count = self.db.scalar(
-            select(func.count(ActionRequest.id)).where(and_(ActionRequest.agent_id == agent.id, ActionRequest.tenant_id == tenant_id, ActionRequest.status == ActionRequestStatus.BLOCKED))
+            select(func.count(ActionRequest.id)).where(and_(ActionRequest.agent_id == agent.id, ActionRequest.tenant_id == tenant_id, ActionRequest.status == ActionRequestStatus.REJECTED))
         ) or 0
 
         violation_count = self.db.scalar(
@@ -345,7 +346,7 @@ class ObservabilityService:
         high_risk_activity = self.db.scalar(
             select(func.count(ActionRequest.id))
             .join(Action, ActionRequest.action_id == Action.id)
-            .where(and_(ActionRequest.tenant_id == tenant_id, Action.risk_level.in_([RiskClassification.HIGH, RiskClassification.CRITICAL])))
+            .where(and_(ActionRequest.tenant_id == tenant_id, Action.risk_level == RiskClassification.HIGH))
         ) or 0
 
         return {

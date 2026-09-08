@@ -22,6 +22,7 @@ from app.db.models import (
     ResourceStatus,
     RiskClassification,
     Tool,
+    DEFAULT_TENANT_ID,
 )
 from app.schemas import ActionRequestSchema, AgentSchema, DecisionSchema
 
@@ -90,7 +91,7 @@ def test_decision_and_policy_rule_trace_to_parent_records() -> None:
         policy = Policy(name=f"Restricted data-{uuid4()}", version=1)
         rule = PolicyRule(policy=policy, effect="DENY", action="read_data", resource_type="dataset", conditions={"sensitivity": "HIGH"})
         request = ActionRequest(agent=agent, principal=principal, action=action, resource=resource, parameters={}, idempotency_key=f"request-{uuid4()}")
-        decision = Decision(action_request=request, decision=DecisionType.BLOCK, reason="Restricted resource", policy=policy, policy_version=1, risk_score=80)
+        decision = Decision(action_request=request, tenant_id=DEFAULT_TENANT_ID, decision=DecisionType.BLOCK, reason="Restricted resource", policy=policy, policy_version=1, risk_score=80)
         session.add(decision)
         session.commit()
 
