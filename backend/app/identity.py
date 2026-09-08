@@ -80,6 +80,7 @@ class SecurityContext:
     delegation: Delegation
     claims: TokenClaims
     resolved_at: datetime
+    tenant_id: uuid.UUID
 
 
 class AgentClientResolver(ABC):
@@ -191,15 +192,20 @@ class AgentIdentityResolver:
         if agent.status != AgentStatus.ACTIVE:
             raise InactiveAgentError(f"Agent '{agent.id}' status is {agent.status.value}")
 
+        # Tenant Consistency Validation
+        if principal.tenant_id != agent.tenant_id:
+            raise IdentityResolutionError("Tenant mismatch: Principal and Agent belong to different tenants", status_code=403, error_type="tenant_mismatch")
+
         # 3. Delegation Validation
-        delegation = self._resolve_delegation(principal.id, agent.id, db)
+        delegation = self._resolve_delegation(principal.id, agent.id, principal.tenant_id, db)
 
         return SecurityContext(
             principal=principal,
             agent=agent,
             delegation=delegation,
             claims=claims,
-            resolved_at=datetime.now(timezone.utc)
+            resolved_at=datetime.now(timezone.utc),
+            tenant_id=principal.tenant_id
         )
 
     def _resolve_principal(self, sub: str, db: Session) -> Principal | None:
@@ -220,12 +226,13 @@ class AgentIdentityResolver:
 
         return None
 
-    def _resolve_delegation(self, principal_id: uuid.UUID, agent_id: uuid.UUID, db: Session) -> Delegation:
+    def _resolve_delegation(self, principal_id: uuid.UUID, agent_id: uuid.UUID, tenant_id: uuid.UUID, db: Session) -> Delegation:
         stmt = (
             select(Delegation)
             .where(
                 Delegation.principal_id == principal_id,
                 Delegation.agent_id == agent_id,
+                Delegation.tenant_id == tenant_id,
             )
             .order_by(Delegation.issued_at.desc())
         )

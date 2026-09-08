@@ -37,19 +37,21 @@ def reset_database():
 def pending_approval(key="approval-key"):
     with TestingSession() as session:
         principal = Principal(name="Approval Owner", external_id=str(uuid4()), type="HUMAN")
+        approver = Principal(name="Approval Reviewer", external_id=str(uuid4()), type="HUMAN")
         agent = Agent(name=str(uuid4()), owner=principal, purpose="Approval test", version="1", risk_classification=RiskClassification.HIGH)
         tool = Tool(name=str(uuid4()), description="Payments")
         action = Action(tool=tool, name="bank_transfer", description="Transfer", risk_level=RiskClassification.HIGH)
         resource = Resource(resource_type="bank_account", resource_key=str(uuid4()), sensitivity=ResourceSensitivity.HIGH)
-        session.add_all([principal, agent, tool, action, resource, Delegation(principal=principal, agent=agent, scope="payments.bank")])
+        session.add_all([principal, approver, agent, tool, action, resource, Delegation(principal=principal, agent=agent, scope="payments.bank")])
         policy = Policy(name=str(uuid4()), version=1, priority=1, status="ACTIVE")
         policy.rules = [PolicyRule(effect=PolicyEffect.ALLOW, action="bank_transfer", resource_type="bank_account", priority=1)]
         session.add(policy); session.commit()
         ids = {"principal_id": str(principal.id), "agent_id": str(agent.id), "action_id": str(action.id), "resource_id": str(resource.id)}
+        approver_id = str(approver.id)
     gateway = client.post("/api/v1/action-requests", json={**ids, "parameters": {"amount": 18000}, "idempotency_key": key})
     assert gateway.status_code == 201 and gateway.json()["gateway_status"] == "PENDING_APPROVAL"
     approval = client.get("/api/v1/approvals").json()[0]
-    return ids, gateway.json(), approval
+    return ids, approver_id, gateway.json(), approval
 
 
 def action_payload(principal_id):
@@ -57,7 +59,7 @@ def action_payload(principal_id):
 
 
 def test_gateway_creates_exactly_one_bound_pending_approval() -> None:
-    ids, gateway, approval = pending_approval()
+    ids, approver_id, gateway, approval = pending_approval()
     retry = client.post("/api/v1/action-requests", json={**ids, "parameters": {"amount": 18000}, "idempotency_key": "approval-key"})
     assert retry.json()["action_request_id"] == gateway["action_request_id"]
     detail = client.get(f"/api/v1/approvals/{approval['id']}").json()
@@ -71,8 +73,8 @@ def test_gateway_creates_exactly_one_bound_pending_approval() -> None:
 
 
 def test_approve_creates_final_allow_without_execution() -> None:
-    ids, gateway, approval = pending_approval()
-    result = client.post(f"/api/v1/approvals/{approval['id']}/approve", json=action_payload(ids["principal_id"]))
+    ids, approver_id, gateway, approval = pending_approval()
+    result = client.post(f"/api/v1/approvals/{approval['id']}/approve", json=action_payload(approver_id))
     assert result.status_code == 200 and result.json()["status"] == "APPROVED"
     with TestingSession() as session:
         decisions = session.scalars(select(Decision).where(Decision.action_request_id == UUID(gateway["action_request_id"])).order_by(Decision.decided_at)).all()
@@ -86,8 +88,8 @@ def test_approve_creates_final_allow_without_execution() -> None:
 
 @pytest.mark.parametrize(("operation", "expected"), [("reject", ApprovalStatus.REJECTED), ("cancel", ApprovalStatus.CANCELLED)])
 def test_reject_and_cancel_create_final_block(operation, expected) -> None:
-    ids, gateway, approval = pending_approval(f"{operation}-key")
-    response = client.post(f"/api/v1/approvals/{approval['id']}/{operation}", json=action_payload(ids["principal_id"]))
+    ids, approver_id, gateway, approval = pending_approval(f"{operation}-key")
+    response = client.post(f"/api/v1/approvals/{approval['id']}/{operation}", json=action_payload(approver_id))
     assert response.json()["status"] == expected.value
     with TestingSession() as session:
         final = session.scalars(select(Decision).where(Decision.action_request_id == UUID(gateway["action_request_id"])).order_by(Decision.decided_at)).all()[-1]
@@ -95,28 +97,31 @@ def test_reject_and_cancel_create_final_block(operation, expected) -> None:
 
 
 def test_expired_approval_cannot_be_approved_or_rejected() -> None:
-    ids, gateway, approval = pending_approval("expired-key")
+    ids, approver_id, gateway, approval = pending_approval("expired-key")
     with TestingSession() as session:
         record = session.get(ApprovalRequest, UUID(approval["id"])); record.expires_at = datetime.now(timezone.utc) - timedelta(seconds=1); session.commit()
-    first = client.post(f"/api/v1/approvals/{approval['id']}/approve", json=action_payload(ids["principal_id"]))
+    first = client.post(f"/api/v1/approvals/{approval['id']}/approve", json=action_payload(approver_id))
     assert first.status_code == 409
-    second = client.post(f"/api/v1/approvals/{approval['id']}/reject", json=action_payload(ids["principal_id"]))
+    second = client.post(f"/api/v1/approvals/{approval['id']}/reject", json=action_payload(approver_id))
     assert second.status_code == 409
     assert client.get(f"/api/v1/approvals/{approval['id']}").json()["status"] == "EXPIRED"
 
 
 @pytest.mark.parametrize(("first", "second"), [("approve", "reject"), ("approve", "cancel"), ("reject", "approve")])
 def test_only_one_terminal_transition_wins(first, second) -> None:
-    ids, _, approval = pending_approval(f"race-{first}-{second}")
-    assert client.post(f"/api/v1/approvals/{approval['id']}/{first}", json=action_payload(ids["principal_id"])).status_code == 200
-    assert client.post(f"/api/v1/approvals/{approval['id']}/{second}", json=action_payload(ids["principal_id"])).status_code == 409
+    ids, approver_id, _, approval = pending_approval(f"race-{first}-{second}")
+    assert client.post(f"/api/v1/approvals/{approval['id']}/{first}", json=action_payload(approver_id)).status_code == 200
+    assert client.post(f"/api/v1/approvals/{approval['id']}/{second}", json=action_payload(approver_id)).status_code == 409
+
+
 
 
 def test_approval_endpoint_cannot_modify_original_evidence() -> None:
-    ids, gateway, approval = pending_approval("immutable-key")
-    response = client.post(f"/api/v1/approvals/{approval['id']}/approve", json={"approver_principal_id": ids["principal_id"], "action_id": str(uuid4()), "risk_score": 0, "decision": "ALLOW"})
+    ids, approver_id, gateway, approval = pending_approval("immutable-key")
+    response = client.post(f"/api/v1/approvals/{approval['id']}/approve", json={"approver_principal_id": approver_id, "action_id": str(uuid4()), "risk_score": 0, "decision": "ALLOW"})
     assert response.status_code == 422
     detail = client.get(f"/api/v1/approvals/{approval['id']}").json()
+
     assert detail["action_id"] == ids["action_id"]
     assert detail["risk_score"] == gateway["risk_score"]
     assert detail["status"] == "PENDING"

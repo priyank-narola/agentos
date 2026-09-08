@@ -4,11 +4,15 @@ frontend/.next/
 frontend/out/
 backend/.venv/
 backend/venv/
+venv/
+env/
 __pycache__/
 *.py[cod]
 .pytest_cache/
 .mypy_cache/
 .ruff_cache/
+.coverage
+htmlcov/
 
 # Environment files
 .env
@@ -17,9 +21,20 @@ __pycache__/
 frontend/.env.local
 backend/.env
 
+# Databases & local stores
+*.db
+*.sqlite
+*.sqlite3
+*.sqlite-journal
+
 # Build and editor files
+dist/
+build/
 *.log
 *.tsbuildinfo
 .DS_Store
 .idea/
 .vscode/
+.claude/
+.gemini/
+

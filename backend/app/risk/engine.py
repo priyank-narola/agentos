@@ -56,12 +56,23 @@ class RiskEngine:
         elif not any(self._delegation_valid(item, context.evaluated_at) for item in context.delegations):
             self._add(factors, "DELEGATION_INVALID", 20, "All matching delegations are revoked or expired.")
 
-        amount = context.parameters.get("amount")
-        if isinstance(amount, (int, float)) and not isinstance(amount, bool):
-            if amount > 10000:
-                self._add(factors, "LARGE_TRANSACTION", 20, "Transaction amount exceeds 10,000 units.")
-            elif amount > 5000:
-                self._add(factors, "ELEVATED_TRANSACTION", 10, "Transaction amount exceeds 5,000 units.")
+        amount_val = context.parameters.get("amount")
+        if amount_val is not None:
+            try:
+                from decimal import Decimal
+                from app.financial import FinancialRiskConfig
+                fin_config = FinancialRiskConfig()
+                amt = Decimal(str(amount_val))
+                if amt >= fin_config.critical_threshold:
+                    self._add(factors, "FINANCIAL_CRITICAL_TRANSACTION", 35, f"Transaction amount {amt} exceeds critical threshold {fin_config.critical_threshold}.")
+                elif amt > 10000:
+                    self._add(factors, "LARGE_TRANSACTION", 20, "Transaction amount exceeds 10,000 units.")
+                elif amt > 5000:
+                    self._add(factors, "ELEVATED_TRANSACTION", 10, "Transaction amount exceeds 5,000 units.")
+                elif amt >= fin_config.low_threshold:
+                    self._add(factors, "FINANCIAL_MEDIUM_TRANSACTION", 5, f"Transaction amount {amt} exceeds low threshold {fin_config.low_threshold}.")
+            except (ValueError, TypeError, ArithmeticError):
+                pass
 
         score = min(100, sum(factor.contribution for factor in factors))
         classification = self.classify(score)

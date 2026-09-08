@@ -4,10 +4,18 @@ from uuid import UUID
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from app.db.models import ActionRequestStatus, ApprovalRequest, ApprovalStatus, AuditEvent, ActorType, Decision, DecisionType, Principal
+from app.db.models import (
+    ActionRequestStatus, ApprovalRequest, ApprovalStatus, AuditEvent, ActorType, Decision, DecisionType,
+    Principal, PrincipalStatus, Agent, AgentStatus, Delegation, DelegationStatus, Resource, ResourceStatus,
+    Action, CapabilityStatus, Tool
+)
 from app.repositories.approval import ApprovalRepository
 from app.schemas import ApprovalActionRequest, ApprovalDetailSchema
 from app.services.errors import RegistryConflictError, RegistryValidationError
+
+from app.financial import compute_payload_digest
+from app.execution import SandboxPaymentProvider, ExecutionStatus
+
 
 
 class ApprovalConflictError(RegistryConflictError):
@@ -20,6 +28,7 @@ class ApprovalService:
     def __init__(self, db: Session) -> None:
         self.db = db
         self.repository = ApprovalRepository(db)
+        self.execution_provider = SandboxPaymentProvider()
 
     def list(self) -> list[ApprovalDetailSchema]:
         return [self._detail(item) for item in self.repository.list()]
@@ -36,7 +45,11 @@ class ApprovalService:
         request.expires_at = request.expires_at or (now or datetime.now(timezone.utc)) + timedelta(minutes=self.EXPIRY_MINUTES)
         self.db.add(request)
         self.db.flush()
-        self._audit("APPROVAL_REQUESTED", request.requested_by, request, {"status": ApprovalStatus.PENDING.value})
+        digest = compute_payload_digest(request.action_request.parameters)
+        self._audit("APPROVAL_REQUESTED", request.requested_by, request, {
+            "status": ApprovalStatus.PENDING.value,
+            "payload_digest": digest
+        })
         return request
 
     def approve(self, approval_id: UUID, payload: ApprovalActionRequest) -> ApprovalDetailSchema:
@@ -68,6 +81,61 @@ class ApprovalService:
             raise RegistryValidationError("Approver principal is required")
         if actor_id is not None and self.db.get(Principal, actor_id) is None:
             raise RegistryValidationError("Approver principal not found")
+
+        if target == ApprovalStatus.APPROVED:
+            # 1. Separation of Duties (SoD / Dual Control) Enforcement
+            if actor_id == approval.requested_by or actor_id == approval.action_request.principal_id:
+                approval.status = ApprovalStatus.REJECTED
+                approval.decided_by = actor_id
+                approval.decided_at = now
+                self._final_block(
+                    approval,
+                    "SECURITY_SEPARATION_OF_DUTIES_VIOLATION",
+                    "Separation of duties violation: Requester cannot approve their own action request",
+                    actor_id
+                )
+                self.db.commit()
+                raise ApprovalConflictError("Separation of duties violation: Requester cannot approve their own action request")
+
+            # 2. Payload-Bound Approval Verification Invariant
+            request = approval.action_request
+            current_digest = compute_payload_digest(request.parameters)
+            orig_digest = None
+            if approval.reason and "[payload_digest:" in approval.reason:
+                orig_digest = approval.reason.partition("[payload_digest:")[2].split("]")[0]
+            if not orig_digest:
+                orig_event = next((e for e in request.audit_events if e.event_data and "payload_digest" in e.event_data), None)
+                if orig_event:
+                    orig_digest = orig_event.event_data.get("payload_digest")
+
+            if orig_digest and orig_digest != current_digest:
+                approval.status = ApprovalStatus.REJECTED
+                approval.decided_by = actor_id
+                approval.decided_at = now
+                self._final_block(
+                    approval,
+                    "SECURITY_PAYLOAD_TAMPERED",
+                    "Action parameters were modified after approval request creation",
+                    actor_id
+                )
+                self.db.commit()
+                raise ApprovalConflictError("Payload tamper detected: Action parameters modified after approval request")
+
+            # 3. Full TOCTOU Security Context Re-Validation
+            toctou_failure = self._revalidate_security_context(approval, actor_id, now)
+            if toctou_failure:
+                approval.status = ApprovalStatus.REJECTED
+                approval.decided_by = actor_id
+                approval.decided_at = now
+                self._final_block(
+                    approval,
+                    "SECURITY_TOCTOU_REVALIDATION_FAILED",
+                    toctou_failure,
+                    actor_id
+                )
+                self.db.commit()
+                raise ApprovalConflictError(f"TOCTOU re-validation failed: {toctou_failure}")
+
         approval.status = target
         approval.decided_by = actor_id
         approval.decided_at = now
@@ -79,27 +147,171 @@ class ApprovalService:
         self.db.refresh(approval)
         return self._detail(approval)
 
+    def _revalidate_security_context(self, approval: ApprovalRequest, actor_id: UUID, now: datetime) -> str | None:
+        """
+        Re-evaluates the complete Security Context at the exact millisecond of approval execution.
+        Verifies Principal, Agent, Delegation, Resource, Action, Tool, and Policy Engine state.
+        Returns None if valid, or a descriptive failure reason string if invalid.
+        """
+        req = approval.action_request
+        tenant_id = approval.tenant_id
+
+        # 1. Requester Principal Active & Tenant Check
+        requester = self.db.get(Principal, req.principal_id)
+        if requester is None or requester.status != PrincipalStatus.ACTIVE or requester.tenant_id != tenant_id:
+            return f"Requester principal '{req.principal_id}' is no longer active or valid for tenant '{tenant_id}'"
+
+        # 2. Approver Principal Active & Tenant Check
+        approver = self.db.get(Principal, actor_id)
+        if approver is None or approver.status != PrincipalStatus.ACTIVE or approver.tenant_id != tenant_id:
+            return f"Approver principal '{actor_id}' is no longer active or valid for tenant '{tenant_id}'"
+
+        # 3. Agent Active & Tenant Check
+        agent = self.db.get(Agent, req.agent_id)
+        if agent is None or agent.status != AgentStatus.ACTIVE or agent.tenant_id != tenant_id:
+            return f"Agent '{req.agent_id}' is no longer active or valid for tenant '{tenant_id}'"
+
+        # 4. Delegation Active, Non-Expired & Tenant Check
+        now_dt = now.replace(tzinfo=timezone.utc) if now.tzinfo is None else now
+        delegations = list(self.db.scalars(
+            select(Delegation).where(
+                Delegation.agent_id == agent.id,
+                Delegation.principal_id == requester.id,
+                Delegation.tenant_id == tenant_id,
+                Delegation.status == DelegationStatus.ACTIVE
+            )
+        ).all())
+        valid_delegations = [
+            d for d in delegations
+            if d.expires_at is None or (
+                d.expires_at.replace(tzinfo=timezone.utc) if d.expires_at.tzinfo is None else d.expires_at
+            ) > now_dt
+        ]
+        if not valid_delegations:
+            return f"No valid active delegation exists for Principal '{requester.id}' and Agent '{agent.id}' in tenant '{tenant_id}'"
+
+        # 5. Resource Active & Tenant Check
+        resource = self.db.get(Resource, req.resource_id)
+        if resource is None or resource.status != ResourceStatus.ACTIVE or resource.tenant_id != tenant_id:
+            return f"Target resource '{req.resource_id}' is no longer active or valid for tenant '{tenant_id}'"
+
+        # 6. Action & Tool Active Check
+        action = self.db.get(Action, req.action_id)
+        if action is None or action.status != CapabilityStatus.ACTIVE:
+            return f"Action '{req.action_id}' is no longer active"
+        tool = self.db.get(Tool, action.tool_id)
+        if tool is None or tool.status != CapabilityStatus.ACTIVE:
+            return f"Derived tool '{action.tool_id}' is no longer active"
+
+        # 7. Policy Engine Re-Evaluation
+        from app.policy import DeterministicPolicyEvaluator, EvaluationInput, ResolvedRecords
+        from app.repositories.policy import PolicyRepository
+        from app.risk import RiskEngine, RiskContext
+
+        evaluator = DeterministicPolicyEvaluator()
+        policy_repo = PolicyRepository(self.db)
+        risk_engine = RiskEngine()
+
+        risk = risk_engine.evaluate(RiskContext(
+            agent=agent,
+            tool=tool,
+            action=action,
+            resource=resource,
+            delegations=tuple(valid_delegations),
+            parameters=req.parameters,
+            evaluated_at=now
+        ))
+
+        policy_result = evaluator.evaluate(
+            EvaluationInput(
+                requester.id, agent.id, tool.id, action.id, resource.id,
+                req.parameters,
+                {"risk_score": risk.score, "risk_classification": risk.classification},
+                now, risk.score, risk.classification
+            ),
+            ResolvedRecords(requester, agent, tool, action, resource, valid_delegations, policy_repo.list_active_policies())
+        )
+
+        if policy_result.decision == "DENY":
+            return f"Policy re-evaluation evaluated to DENY ({policy_result.reason_code}: {policy_result.reason})"
+
+        return None
+
+
     def _final_allow(self, approval: ApprovalRequest, actor_id: UUID) -> None:
         request = approval.action_request
         request.status = ActionRequestStatus.COMPLETED
         original = self._original_decision(request)
-        decision = Decision(action_request_id=request.id, decision=DecisionType.ALLOW, reason="HUMAN_APPROVAL: approved for execution; external execution remains disabled", policy_id=original.policy_id, policy_version=original.policy_version, risk_score=original.risk_score)
+        digest = compute_payload_digest(request.parameters)
+
+        # Dispatch Execution via SandboxPaymentProvider with Tenant Context
+        self._audit("EXECUTION_STARTED", actor_id, approval, {
+            "provider": "SandboxPaymentProvider",
+            "payload_digest": digest
+        })
+        exec_res = self.execution_provider.execute(request.id, request.parameters, request.idempotency_key, tenant_id=approval.tenant_id)
+
+        exec_status = exec_res.status.value
+        reason_msg = (
+            f"HUMAN_APPROVAL: Approved and executed via SandboxPaymentProvider (Status: {exec_status}, Ref: {exec_res.transaction_reference})"
+            if exec_res.status == ExecutionStatus.EXECUTION_SUCCEEDED
+            else f"HUMAN_APPROVAL: Approved but execution failed ({exec_res.error_message})"
+        )
+        decision = Decision(
+            action_request_id=request.id,
+            decision=DecisionType.ALLOW,
+            reason=reason_msg,
+            policy_id=original.policy_id,
+            policy_version=original.policy_version,
+            risk_score=original.risk_score
+        )
         self.db.add(decision)
         self.db.flush()
-        self._audit("APPROVAL_APPROVED", actor_id, approval, {"status": ApprovalStatus.APPROVED.value, "decision_id": str(decision.id), "execution_status": "NOT_EXECUTED"}, decision.id)
+
+        event_name = "EXECUTION_SUCCEEDED" if exec_res.status == ExecutionStatus.EXECUTION_SUCCEEDED else "EXECUTION_FAILED"
+        self._audit(event_name, actor_id, approval, {
+            "execution_id": exec_res.execution_id,
+            "status": exec_res.status.value,
+            "transaction_reference": exec_res.transaction_reference,
+            "error_message": exec_res.error_message,
+            "payload_digest": digest
+        }, decision.id)
+
+        self._audit("APPROVAL_APPROVED", actor_id, approval, {
+            "status": ApprovalStatus.APPROVED.value,
+            "decision_id": str(decision.id),
+            "execution_status": exec_status,
+            "payload_digest": digest
+        }, decision.id)
 
     def _final_block(self, approval: ApprovalRequest, event_type: str, reason: str, actor_id: UUID | None) -> None:
         request = approval.action_request
         request.status = ActionRequestStatus.REJECTED
         original = self._original_decision(request)
+        digest = compute_payload_digest(request.parameters)
         decision = Decision(action_request_id=request.id, decision=DecisionType.BLOCK, reason=f"{event_type}: {reason}", policy_id=original.policy_id, policy_version=original.policy_version, risk_score=original.risk_score)
         self.db.add(decision)
         self.db.flush()
-        self._audit(event_type, actor_id or approval.requested_by, approval, {"status": approval.status.value, "decision_id": str(decision.id), "execution_status": "NOT_EXECUTED"}, decision.id)
+        self._audit(event_type, actor_id or approval.requested_by, approval, {
+            "status": approval.status.value,
+            "decision_id": str(decision.id),
+            "execution_status": "NOT_EXECUTED",
+            "payload_digest": digest
+        }, decision.id)
+
 
     def _audit(self, event_type, actor_id, approval, data, decision_id=None) -> None:
         request = approval.action_request
-        self.db.add(AuditEvent(event_type=event_type, actor_type=ActorType.PRINCIPAL, actor_id=actor_id, agent_id=request.agent_id, action_request_id=request.id, decision_id=decision_id, event_data={"approval_id": str(approval.id), "action_request_id": str(request.id), **data}))
+        self.db.add(AuditEvent(
+            tenant_id=approval.tenant_id,
+            event_type=event_type,
+            actor_type=ActorType.PRINCIPAL,
+            actor_id=actor_id,
+            agent_id=request.agent_id,
+            action_request_id=request.id,
+            decision_id=decision_id,
+            event_data={"approval_id": str(approval.id), "action_request_id": str(request.id), **data}
+        ))
 
     def _detail(self, approval: ApprovalRequest) -> ApprovalDetailSchema:
         request = approval.action_request

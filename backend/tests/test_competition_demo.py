@@ -31,6 +31,11 @@ def test_three_competition_scenarios_are_real_and_deterministic() -> None:
         seed_demo(session)
         gateway = GatewayService(session)
 
+        # Create distinct compliance officer for approvals (Separation of Duties)
+        approver = Principal(name="Compliance Officer", external_id="demo-compliance", type="HUMAN")
+        session.add(approver)
+        session.commit()
+
         principal, agent, action, resource = records(session, "SalesAgent", "read_customer", "customer_record_001")
         safe = gateway.submit(GatewayRequestCreate(principal_id=principal.id, agent_id=agent.id, action_id=action.id, resource_id=resource.id, idempotency_key="demo-safe", parameters={}))
         assert safe.gateway_status == "AUTHORIZED" and safe.execution_status == "NOT_EXECUTED"
@@ -45,10 +50,10 @@ def test_three_competition_scenarios_are_real_and_deterministic() -> None:
         approval_result = gateway.submit(GatewayRequestCreate(principal_id=principal.id, agent_id=agent.id, action_id=action.id, resource_id=resource.id, idempotency_key="demo-approval", parameters={"amount": 18000, "currency": "USD"}))
         assert approval_result.gateway_status == "PENDING_APPROVAL"
         pending = session.scalar(select(ApprovalRequest).where(ApprovalRequest.action_request_id == approval_result.action_request_id))
-        approved = ApprovalService(session).approve(pending.id, ApprovalActionRequest(approver_principal_id=principal.id))
+        approved = ApprovalService(session).approve(pending.id, ApprovalActionRequest(approver_principal_id=approver.id))
         assert approved.status.value == "APPROVED"
 
         rejection_result = gateway.submit(GatewayRequestCreate(principal_id=principal.id, agent_id=agent.id, action_id=action.id, resource_id=resource.id, idempotency_key=f"demo-reject-{uuid4()}", parameters={"amount": 18000, "currency": "USD"}))
         pending_reject = session.scalar(select(ApprovalRequest).where(ApprovalRequest.action_request_id == rejection_result.action_request_id))
-        rejected = ApprovalService(session).reject(pending_reject.id, ApprovalActionRequest(approver_principal_id=principal.id))
+        rejected = ApprovalService(session).reject(pending_reject.id, ApprovalActionRequest(approver_principal_id=approver.id))
         assert rejected.status.value == "REJECTED"
