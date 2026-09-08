@@ -1,12 +1,70 @@
 import hmac
 import hashlib
+import json
 import time
+import uuid
 from datetime import datetime, timezone
 from typing import Any
 from uuid import UUID
 
-from app.db.models import ExecutionState
-from app.execution import ExecutionStateMachine, InvalidExecutionStateTransitionError
+from sqlalchemy import select
+from sqlalchemy.orm import Session
+
+from app.config import settings
+from app.db.models import AuditEvent, ActorType, ExecutionState, FinancialExecution, WebhookEvent
+
+# Persisted-ledger lifecycle transitions for webhook state updates. This is the
+# model-level ExecutionState lifecycle (distinct from the provider ExecutionStatus
+# state machine in app.execution).
+_EXECUTION_STATE_TRANSITIONS: dict[ExecutionState, set[ExecutionState]] = {
+    ExecutionState.PENDING: {
+        ExecutionState.SUBMITTED,
+        ExecutionState.PROCESSING,
+        ExecutionState.SUCCEEDED,
+        ExecutionState.FAILED,
+        ExecutionState.UNKNOWN,
+        ExecutionState.CANCELLED,
+    },
+    ExecutionState.SUBMITTED: {
+        ExecutionState.PROCESSING,
+        ExecutionState.SUCCEEDED,
+        ExecutionState.FAILED,
+        ExecutionState.UNKNOWN,
+        ExecutionState.CANCELLED,
+        ExecutionState.RECONCILIATION_REQUIRED,
+    },
+    ExecutionState.PROCESSING: {
+        ExecutionState.SUCCEEDED,
+        ExecutionState.FAILED,
+        ExecutionState.UNKNOWN,
+        ExecutionState.CANCELLED,
+        ExecutionState.RECONCILIATION_REQUIRED,
+    },
+    ExecutionState.UNKNOWN: {
+        ExecutionState.SUCCEEDED,
+        ExecutionState.FAILED,
+        ExecutionState.CANCELLED,
+        ExecutionState.RECONCILIATION_REQUIRED,
+    },
+    ExecutionState.RECONCILIATION_REQUIRED: {
+        ExecutionState.SUCCEEDED,
+        ExecutionState.FAILED,
+        ExecutionState.CANCELLED,
+    },
+    # Terminal states accept no outgoing transitions (out-of-order webhooks fail closed).
+    ExecutionState.SUCCEEDED: set(),
+    ExecutionState.FAILED: set(),
+    ExecutionState.CANCELLED: set(),
+}
+
+
+def _validate_execution_state_transition(current: ExecutionState, target: ExecutionState) -> None:
+    if current == target:
+        return
+    if target not in _EXECUTION_STATE_TRANSITIONS.get(current, set()):
+        raise WebhookError(
+            f"Out-of-order webhook ignored: illegal ExecutionState transition from {current.value} to {target.value}"
+        )
 
 
 class WebhookError(ValueError):
@@ -119,11 +177,104 @@ class WebhookSecurityHandler:
         except ValueError:
             target_state = ExecutionState.UNKNOWN
 
-        # Validate state machine transition safety (handles out-of-order webhooks)
-        try:
-            ExecutionStateMachine.validate_transition(current_state, target_state)
-        except InvalidExecutionStateTransitionError as e:
-            # Out-of-order webhook trying to mutate terminal state -> safe ignore / fail closed
-            raise WebhookError(f"Out-of-order webhook ignored: {e}") from e
+        # Validate state transition safety (handles out-of-order webhooks)
+        _validate_execution_state_transition(current_state, target_state)
 
         return target_state
+
+
+class WebhookDeliveryService:
+    """Handles signed provider webhook delivery end-to-end.
+
+    Flow: HMAC-SHA256 signature verification over the raw body
+    -> timestamp skew check (replay protection)
+    -> durable per-(tenant, event_id) deduplication
+    -> tenant-safe resolution of the target FinancialExecution
+    -> validated state transition (out-of-order events fail closed)
+    -> WebhookEvent ledger row + audit event.
+    """
+
+    def __init__(self, db: Session) -> None:
+        self.db = db
+        self.handler = WebhookSecurityHandler(max_skew_seconds=settings.webhook_max_skew_seconds)
+        self.secret = settings.webhook_secret
+
+    def _record(self, tenant_id: UUID, payload: dict, outcome: str, event_type: str) -> None:
+        existing = self.db.scalar(
+            select(WebhookEvent).where(
+                WebhookEvent.tenant_id == tenant_id,
+                WebhookEvent.event_id == payload.get("event_id", ""),
+            )
+        )
+        if existing is not None:
+            return existing
+        record = WebhookEvent(
+            tenant_id=tenant_id,
+            event_id=str(payload.get("event_id", uuid.uuid4())),
+            event_type=event_type,
+            source=str(payload.get("source", "provider")),
+            outcome=outcome,
+            payload=payload,
+        )
+        self.db.add(record)
+        self.db.flush()
+        return record
+
+    def deliver(self, raw_body: bytes, signature_header: str, payload: dict) -> dict[str, Any]:
+        # 1. Signature verification (raw body bytes, constant-time compare).
+        self.handler.verify_signature(raw_body, signature_header, self.secret)
+
+        # 2. Timestamp / replay protection (t=<unix> included in signature header).
+        ts = None
+        if signature_header and "t=" in signature_header:
+            try:
+                ts = dict(part.split("=") for part in signature_header.split(",") if "=" in part).get("t")
+            except ValueError:
+                ts = None
+        if ts is None:
+            raise WebhookTimestampExpiredError("Webhook header must include a t=<unix timestamp> parameter")
+        self.handler.validate_timestamp(ts)
+
+        event_id = payload.get("event_id")
+        action_request_id = payload.get("action_request_id")
+        if not event_id or not action_request_id:
+            raise WebhookError("Webhook payload must include event_id and action_request_id")
+
+        # 3. Tenant-safe resolution of the target execution (never client-chosen tenant).
+        try:
+            request_uuid = UUID(str(action_request_id))
+        except (ValueError, TypeError) as exc:
+            raise WebhookError("action_request_id must be a valid UUID") from exc
+        execution = self.db.scalar(
+            select(FinancialExecution).where(FinancialExecution.action_request_id == request_uuid)
+        )
+        if execution is None:
+            raise WebhookError("No FinancialExecution found for action_request_id")
+
+        # 4. Durable deduplication (duplicate event_id for the same tenant).
+        existing = self.db.scalar(
+            select(WebhookEvent).where(
+                WebhookEvent.tenant_id == execution.tenant_id,
+                WebhookEvent.event_id == str(event_id),
+            )
+        )
+        if existing is not None:
+            return {"status": "duplicate", "event_id": str(event_id), "deduplicated": True}
+
+        # 5. Tenant binding + state-transition validation (fails closed).
+        target_state = self.handler.bind_and_process(payload, execution.tenant_id, execution.status)
+
+        # 6. Apply transition to the execution ledger and record evidence.
+        execution.status = target_state
+        execution.error_message = payload.get("error_message")
+        self._record(execution.tenant_id, payload, outcome="processed", event_type=str(payload.get("event_type", "provider_event")))
+        self.db.add(AuditEvent(
+            tenant_id=execution.tenant_id,
+            event_type="WEBHOOK_EVENT_RECEIVED",
+            actor_type=ActorType.SYSTEM,
+            actor_id=uuid.UUID(int=0),
+            action_request_id=request_uuid,
+            event_data={"event_id": str(event_id), "status": target_state.value if hasattr(target_state, "value") else str(target_state), "deduplicated": False},
+        ))
+        self.db.commit()
+        return {"status": "processed", "event_id": str(event_id), "execution_status": target_state.value if hasattr(target_state, "value") else str(target_state)}

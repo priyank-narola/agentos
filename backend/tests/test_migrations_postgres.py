@@ -57,6 +57,7 @@ EXPECTED_TABLES = {
     "approval_requests",
     "audit_events",
     "financial_executions",
+    "webhook_events",
 }
 
 _DEFAULT_TENANT_ID = "00000000-0000-0000-0000-000000000001"
@@ -260,10 +261,14 @@ def test_existing_current_database_upgrades_additively_and_backfills_decision_te
 def test_downgrade_after_head_removes_decision_tenant_ownership(db_url):
     _reset_schema(db_url)
     _run_alembic(db_url, "upgrade", "head")
-    _run_alembic(db_url, "downgrade", "-1")
+    # Downgrade back through revision 0004 (webhook events) and 0003
+    # (decision tenant ownership) to the 0002 baseline.
+    _run_alembic(db_url, "downgrade", "20260824_0002")
 
     engine = _engine(db_url)
     with engine.begin() as conn:
         cols = {c["name"] for c in sa.inspect(conn).get_columns("decisions")}
         assert "tenant_id" not in cols
+        tables = set(sa.inspect(conn).get_table_names())
+        assert "webhook_events" not in tables
     engine.dispose()

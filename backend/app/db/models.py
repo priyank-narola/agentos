@@ -368,3 +368,26 @@ class FinancialExecution(TimestampMixin, Base):
     error_message: Mapped[str | None] = mapped_column(Text)
     tenant: Mapped[Tenant] = relationship()
     action_request: Mapped[ActionRequest] = relationship()
+
+
+class WebhookEvent(TimestampMixin, Base):
+    """Durable record of a verified webhook delivery (idempotency + audit).
+
+    tenant_id is derived server-side from the signed payload/execution record;
+    event_id uniqueness per tenant provides durable deduplication.
+    """
+
+    __tablename__ = "webhook_events"
+    __table_args__ = (
+        UniqueConstraint("tenant_id", "event_id", name="uq_webhook_events_tenant_event"),
+        Index("ix_webhook_events_tenant_created", "tenant_id", "created_at"),
+    )
+
+    id: Mapped[uuid.UUID] = mapped_column(Uuid(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    tenant_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("tenants.id", ondelete="RESTRICT"), nullable=False, default=DEFAULT_TENANT_ID)
+    event_id: Mapped[str] = mapped_column(String(200), nullable=False)
+    event_type: Mapped[str] = mapped_column(String(100), nullable=False)
+    source: Mapped[str] = mapped_column(String(100), nullable=False)
+    outcome: Mapped[str] = mapped_column(String(50), nullable=False)
+    payload: Mapped[dict[str, Any]] = mapped_column(JSON_PAYLOAD, nullable=False)
+    tenant: Mapped[Tenant] = relationship()

@@ -48,6 +48,7 @@ def test_all_domain_tables_are_registered() -> None:
         "approval_requests",
         "audit_events",
         "financial_executions",
+        "webhook_events",
     }
 
 

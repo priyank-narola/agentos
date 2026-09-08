@@ -12,6 +12,7 @@ from app.api.demo import router as demo_router
 from app.api.observability import router as observability_router
 from app.api.demo_scenarios import router as demo_scenarios_router
 from app.api.integration import router as integration_router
+from app.api.webhook import router as webhook_router
 from app.api.mcp import mcp_app
 
 app = FastAPI(title=settings.app_name, version=settings.app_version)
@@ -30,6 +31,7 @@ app.include_router(demo_router)
 app.include_router(observability_router)
 app.include_router(demo_scenarios_router)
 app.include_router(integration_router)
+app.include_router(webhook_router)
 
 
 

@@ -32,5 +32,9 @@ class Settings:
     rate_limit_max: int = int(os.getenv("RATE_LIMIT_MAX", "600"))
     rate_limit_window_seconds: int = int(os.getenv("RATE_LIMIT_WINDOW_SECONDS", "60"))
 
+    # Webhook verification (sandbox provider source). Replace in any real deployment.
+    webhook_secret: str = os.getenv("WEBHOOK_SECRET", "sandbox-webhook-secret-change-me")
+    webhook_max_skew_seconds: int = int(os.getenv("WEBHOOK_MAX_SKEW_SECONDS", "300"))
+
 
 settings = Settings()
