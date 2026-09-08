@@ -7,6 +7,7 @@ from app.db.session import get_db
 from app.schemas import ActionRequestDetailSchema, GatewayRequestCreate, GatewayResponse
 from app.services.errors import RegistryConflictError
 from app.services.gateway import GatewayIdempotencyConflict, GatewayService
+from app.api.ratelimit import check_rate_limit
 
 router = APIRouter(prefix="/api/v1", tags=["runtime-gateway"])
 
@@ -15,7 +16,7 @@ def service(db: Session = Depends(get_db)) -> GatewayService:
     return GatewayService(db)
 
 
-@router.post("/action-requests", response_model=GatewayResponse, status_code=status.HTTP_201_CREATED)
+@router.post("/action-requests", response_model=GatewayResponse, status_code=status.HTTP_201_CREATED, dependencies=[Depends(check_rate_limit)])
 def submit_action_request(payload: GatewayRequestCreate, gateway: GatewayService = Depends(service)) -> GatewayResponse:
     try:
         return gateway.submit(payload)

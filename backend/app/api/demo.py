@@ -5,11 +5,12 @@ from sqlalchemy.orm import Session
 from app.db.session import get_db
 
 from app.services.demo import FinancialWorkflowDemoService, treasury_demo_manifest
+from app.api.ratelimit import check_rate_limit
 
 router = APIRouter(prefix="/api/v1/demo", tags=["demo"])
 
 
-@router.post("/treasury/bootstrap")
+@router.post("/treasury/bootstrap", dependencies=[Depends(check_rate_limit)])
 def bootstrap_treasury_demo(
     db: Session = Depends(get_db)
 ) -> dict[str, Any]:

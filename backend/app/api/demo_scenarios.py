@@ -6,6 +6,7 @@ from sqlalchemy.orm import Session
 
 from app.db.session import get_db
 from app.services.scenarios import ScenarioEngine
+from app.api.ratelimit import check_rate_limit
 
 router = APIRouter(prefix="/api/v1/demo", tags=["demo-scenarios"])
 
@@ -28,7 +29,7 @@ def list_demo_scenarios() -> dict[str, Any]:
     }
 
 
-@router.post("/scenarios/{scenario_key}/run", response_model=dict[str, Any])
+@router.post("/scenarios/{scenario_key}/run", response_model=dict[str, Any], dependencies=[Depends(check_rate_limit)])
 def run_demo_scenario(
     scenario_key: str,
     db: Session = Depends(get_db)

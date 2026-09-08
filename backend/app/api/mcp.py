@@ -5,7 +5,7 @@ import uuid
 from contextvars import ContextVar
 from typing import Any, Optional
 
-from fastapi import FastAPI, Request, Response, HTTPException, status
+from fastapi import FastAPI, Request, Response, HTTPException, status, Depends
 from fastapi.responses import JSONResponse
 from sqlalchemy.orm import Session
 from starlette.middleware.base import BaseHTTPMiddleware
@@ -19,6 +19,7 @@ from app.identity import AgentIdentityResolver, IdentityResolutionError, Securit
 from app.schemas import GatewayRequestCreate, GatewayResponse
 from app.services.errors import RegistryConflictError
 from app.services.gateway import GatewayIdempotencyConflict, GatewayService
+from app.api.ratelimit import check_rate_limit
 
 logger = logging.getLogger(__name__)
 
@@ -258,7 +259,7 @@ def get_mcp_protected_resource_metadata() -> dict[str, Any]:
 @mcp_app.post("/", response_model=dict[str, Any])
 @mcp_app.post("/messages", response_model=dict[str, Any])
 @mcp_app.post("/v1/messages", response_model=dict[str, Any])
-async def handle_mcp_streamable_http_message(request: Request) -> Response:
+async def handle_mcp_streamable_http_message(request: Request, _rate_limit: None = Depends(check_rate_limit)) -> Response:
 
     """
     Main MCP Streamable HTTP JSON-RPC Message Endpoint.

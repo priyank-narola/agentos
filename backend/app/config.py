@@ -28,5 +28,9 @@ class Settings:
     mcp_auth_public_key: str = os.getenv("MCP_AUTH_PUBLIC_KEY", "")
     mcp_auth_secret_key: str = os.getenv("MCP_AUTH_SECRET_KEY", "")
 
+    # Abuse protection (bounded, single-instance)
+    rate_limit_max: int = int(os.getenv("RATE_LIMIT_MAX", "600"))
+    rate_limit_window_seconds: int = int(os.getenv("RATE_LIMIT_WINDOW_SECONDS", "60"))
+
 
 settings = Settings()

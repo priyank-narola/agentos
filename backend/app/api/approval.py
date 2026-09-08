@@ -8,6 +8,7 @@ from app.db.session import get_db
 from app.schemas import ApprovalActionRequest, ApprovalDetailSchema
 from app.services.approval import ApprovalConflictError, ApprovalService
 from app.services.errors import RegistryValidationError
+from app.api.ratelimit import check_rate_limit
 
 router = APIRouter(prefix="/api/v1/approvals", tags=["approvals"])
 
@@ -51,16 +52,16 @@ def transition(operation):
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(error)) from error
 
 
-@router.post("/{approval_id}/approve", response_model=ApprovalDetailSchema)
+@router.post("/{approval_id}/approve", response_model=ApprovalDetailSchema, dependencies=[Depends(check_rate_limit)])
 def approve(approval_id: UUID, payload: ApprovalActionRequest, approvals: ApprovalService = Depends(service)) -> ApprovalDetailSchema:
     return transition(lambda: approvals.approve(approval_id, payload))
 
 
-@router.post("/{approval_id}/reject", response_model=ApprovalDetailSchema)
+@router.post("/{approval_id}/reject", response_model=ApprovalDetailSchema, dependencies=[Depends(check_rate_limit)])
 def reject(approval_id: UUID, payload: ApprovalActionRequest, approvals: ApprovalService = Depends(service)) -> ApprovalDetailSchema:
     return transition(lambda: approvals.reject(approval_id, payload))
 
 
-@router.post("/{approval_id}/cancel", response_model=ApprovalDetailSchema)
+@router.post("/{approval_id}/cancel", response_model=ApprovalDetailSchema, dependencies=[Depends(check_rate_limit)])
 def cancel(approval_id: UUID, payload: ApprovalActionRequest, approvals: ApprovalService = Depends(service)) -> ApprovalDetailSchema:
     return transition(lambda: approvals.cancel(approval_id, payload))
