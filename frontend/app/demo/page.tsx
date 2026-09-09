@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
 
 import {
@@ -286,6 +287,14 @@ export default function DemoPage() {
                 </div>
                 {executed && (
                   <p className="mt-3 text-xs text-emerald-800">FinancialExecution ledger: {obs?.execution.status} — recorded by {obs?.execution.provider_name} under action request {approval?.action_request_id}</p>
+                )}
+                {approval && (
+                  <div className="mt-4 flex flex-wrap gap-2 text-sm">
+                    <span className="self-center text-xs text-slate-400">Continue into the product:</span>
+                    <Link href={`/action-requests/${approval.action_request_id}`} className="rounded border border-ink bg-white px-3 py-1 text-xs font-medium text-ink hover:bg-ink hover:text-white">View action case file</Link>
+                    <Link href={`/approvals/${approval.id}`} className="rounded border border-ink bg-white px-3 py-1 text-xs font-medium text-ink hover:bg-ink hover:text-white">View approval</Link>
+                    <Link href="/observability" className="rounded border border-ink bg-white px-3 py-1 text-xs font-medium text-ink hover:bg-ink hover:text-white">View observability</Link>
+                  </div>
                 )}
               </section>
             )}

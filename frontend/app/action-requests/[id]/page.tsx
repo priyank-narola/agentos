@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useEffect, useState } from "react";
 
 import { ActionRequest, Approval, ObservabilityActionDetail, TimelineEvent, api } from "@/lib/api";
@@ -50,6 +51,12 @@ export default function ActionRequestDetailPage({ params }: { params: Promise<{ 
 
   return (
     <RegistryShell title="Action request detail" eyebrow="Decision evidence">
+      <div className="mb-4 flex flex-wrap gap-2 text-sm">
+        <span className="text-xs self-center text-slate-400">Case file:</span>
+        <Link href={`/agents/${request.agent_id}`} className="rounded border border-slate-200 bg-white px-3 py-1 text-xs font-medium text-signal hover:border-signal">Agent: {request.agent_name}</Link>
+        <Link href={`/resources/${request.resource_id}`} className="rounded border border-slate-200 bg-white px-3 py-1 text-xs font-medium text-signal hover:border-signal">Resource: {request.resource_key}</Link>
+        {approval && <Link href={`/approvals/${approval.id}`} className="rounded border border-slate-200 bg-white px-3 py-1 text-xs font-medium text-signal hover:border-signal">Approval: {approval.status}</Link>}
+      </div>
       <div className="flex flex-wrap items-start justify-between gap-4 border border-slate-200 bg-white p-6">
         <div><p className="text-xs uppercase tracking-wide text-slate-400">Final state</p><p className="mt-2 text-3xl font-semibold text-ink">{finalState}</p><p className="mt-3 text-sm text-slate-600">{request.reason ?? "No decision reason recorded."}</p></div>
         <div className="flex flex-wrap gap-2">{request.reason_code && <StatusPill value={request.reason_code} />}{request.risk_classification && <StatusPill value={`${request.risk_classification} · ${request.risk_score}/100`} />}</div>

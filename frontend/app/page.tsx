@@ -38,13 +38,15 @@ export default function Home() {
   const [approvals, setApprovals] = useState<Approval[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [metrics, setMetrics] = useState<{ approved_executions: number; rejected_actions: number; execution_failures_timeouts: number } | null>(null);
 
   useEffect(() => {
-    Promise.all([api.agents(), api.actionRequests(), api.approvals()])
-      .then(([agentData, requestData, approvalData]) => {
+    Promise.all([api.agents(), api.actionRequests(), api.approvals(), api.metrics().catch(() => null)])
+      .then(([agentData, requestData, approvalData, metricData]) => {
         setAgents(agentData);
         setRequests(requestData);
         setApprovals(approvalData);
+        setMetrics(metricData);
       })
       .catch((reason: Error) => setError(reason.message))
       .finally(() => setLoading(false));
@@ -85,7 +87,7 @@ export default function Home() {
 
           <div className="mt-7 grid gap-6 xl:grid-cols-[1.35fr_0.65fr]">
             <section className="border border-slate-200 bg-white p-6"><div className="flex items-center justify-between"><div><p className="text-xs font-semibold uppercase tracking-[0.16em] text-signal">Risk overview</p><h2 className="mt-1 text-lg font-semibold text-ink">Observed request distribution</h2></div><span className="text-xs text-slate-400">server-returned evidence</span></div><div className="mt-7 grid gap-3 sm:grid-cols-4">{riskCounts.map(({ level, count }) => <div key={level} className={`border p-4 ${level === "HIGH" || level === "CRITICAL" ? "border-red-200 bg-red-50" : "border-slate-200 bg-slate-50"}`}><p className="text-xs font-semibold tracking-wide text-slate-500">{level}</p><p className="mt-3 text-3xl font-semibold text-ink">{count}</p><div className="mt-4 h-1.5 bg-slate-200"><div className={`h-full ${level === "CRITICAL" ? "bg-red-700" : level === "HIGH" ? "bg-orange-500" : "bg-signal"}`} style={{ width: `${requests.length ? Math.max((count / requests.length) * 100, count ? 8 : 0) : 0}%` }} /></div></div>)}</div></section>
-            <section className="border border-slate-200 bg-white p-6"><p className="text-xs font-semibold uppercase tracking-[0.16em] text-signal">System state</p><h2 className="mt-1 text-lg font-semibold text-ink">Control posture</h2><div className="mt-6 space-y-4 text-sm"><p className="flex justify-between border-b border-slate-100 pb-3"><span className="text-slate-500">Registered agents</span><strong>{agents.length}</strong></p><p className="flex justify-between border-b border-slate-100 pb-3"><span className="text-slate-500">Risk engine</span><strong className="text-signal">Deterministic</strong></p><p className="flex justify-between border-b border-slate-100 pb-3"><span className="text-slate-500">Policy engine</span><strong className="text-signal">Deterministic</strong></p><p className="flex justify-between"><span className="text-slate-500">Human approval</span><strong className="text-amber-700">Controlled</strong></p></div></section>
+            <section className="border border-slate-200 bg-white p-6"><div className="flex items-start justify-between gap-3"><div><p className="text-xs font-semibold uppercase tracking-[0.16em] text-signal">System state</p><h2 className="mt-1 text-lg font-semibold text-ink">Control posture</h2></div><Link href="/observability" className="text-xs font-semibold text-signal hover:underline">Open observability →</Link></div><div className="mt-6 space-y-4 text-sm"><p className="flex justify-between border-b border-slate-100 pb-3"><span className="text-slate-500">Registered agents</span><strong>{agents.length}</strong></p><p className="flex justify-between border-b border-slate-100 pb-3"><span className="text-slate-500">Successful executions</span><strong>{metrics?.approved_executions ?? "--"}</strong></p><p className="flex justify-between border-b border-slate-100 pb-3"><span className="text-slate-500">Blocked / rejected actions</span><strong>{metrics?.rejected_actions ?? "--"}</strong></p><p className="flex justify-between border-b border-slate-100 pb-3"><span className="text-slate-500">Execution failures / timeouts</span><strong>{metrics?.execution_failures_timeouts ?? "--"}</strong></p><p className="flex justify-between border-b border-slate-100 pb-3"><span className="text-slate-500">Risk engine</span><strong className="text-signal">Deterministic</strong></p><p className="flex justify-between border-b border-slate-100 pb-3"><span className="text-slate-500">Policy engine</span><strong className="text-signal">Deterministic</strong></p><p className="flex justify-between"><span className="text-slate-500">Human approval</span><strong className="text-amber-700">Controlled</strong></p></div></section>
           </div>
 
           <div className="mt-7 grid gap-6 xl:grid-cols-[1.4fr_0.8fr]">

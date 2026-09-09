@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useCallback, useEffect, useMemo, useState } from "react";
 
 import { ActionRequest, Approval, ApproverCandidate, Principal, api } from "@/lib/api";
@@ -93,6 +94,10 @@ export default function ApprovalDetailPage({ params }: { params: Promise<{ id: s
 
       {approval && (
         <>
+          <div className="mb-4 flex flex-wrap gap-2 text-sm">
+            <Link href={`/action-requests/${approval.action_request_id}`} className="rounded border border-slate-200 bg-white px-3 py-1 text-xs font-medium text-signal hover:border-signal">Open the action case file →</Link>
+            <Link href={`/agents/${approval.agent_id}`} className="rounded border border-slate-200 bg-white px-3 py-1 text-xs font-medium text-signal hover:border-signal">Agent: {approval.agent_name}</Link>
+          </div>
           <div className="border border-slate-200 bg-white p-6">
             <div className="flex flex-wrap items-start justify-between gap-4">
               <div>
