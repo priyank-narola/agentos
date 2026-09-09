@@ -28,6 +28,10 @@ export const NAV_SECTIONS: NavSection[] = [
       { label: "Policy evaluation", href: "/policy-evaluation" },
     ],
   },
+  {
+    title: "Security & intelligence",
+    items: [{ label: "Risk & intelligence", href: "/intelligence" }],
+  },
   { title: "Observability", items: [{ label: "Audit & posture", href: "/observability" }] },
 ];
 
@@ -44,7 +48,7 @@ export function AppNav({ className = "" }: { className?: string }) {
         <span className="grid h-9 w-9 place-items-center rounded bg-signal text-sm font-bold">A</span>
         <div>
           <p className="font-semibold tracking-wide">AgentOS</p>
-          <p className="text-xs text-slate-400">AI Action Governance</p>
+          <p className="text-xs text-slate-400">Authorization &amp; control plane for AI agents</p>
         </div>
       </div>
       <nav aria-label="Product navigation" className="space-y-6">
