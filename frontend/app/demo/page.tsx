@@ -46,14 +46,22 @@ export default function DemoPage() {
   const [approvers, setApprovers] = useState<ApproverCandidate[]>([]);
   const [approverId, setApproverId] = useState("");
   const [scenarioResults, setScenarioResults] = useState<Record<string, Record<string, unknown>>>({});
+  const [delegationScopes, setDelegationScopes] = useState<string[]>([]);
   const [busy, setBusy] = useState<"gateway" | "approve" | "reject" | string | null>(null);
   const [runningScenario, setRunningScenario] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
+    let active = true;
     api.treasuryBootstrap()
-      .then((m) => { setManifest(m); setAmount(m.default_amount); setCurrency(m.default_currency); setApproverId(m.approver.id); })
-      .catch((reason: Error) => setError(reason.message));
+      .then(async (m) => {
+        if (!active) return;
+        setManifest(m); setAmount(m.default_amount); setCurrency(m.default_currency); setApproverId(m.approver.id);
+        const delegations = await api.delegations().catch(() => [] as Array<{ agent_id: string; scope: string }>);
+        if (active) setDelegationScopes(delegations.filter((d) => d.agent_id === m.agent.id).map((d) => d.scope).slice(0, 4));
+      })
+      .catch((reason: Error) => { if (active) setError(reason.message); });
+    return () => { active = false; };
   }, []);
 
   const loadEvidence = useCallback(async (updated: Approval) => {
@@ -227,12 +235,23 @@ export default function DemoPage() {
                 <div className="border border-slate-100 bg-slate-50 p-4"><p className="text-[11px] font-semibold uppercase text-slate-400">On behalf of</p><p className="mt-1 font-medium text-ink">{requester?.name}</p><p className="text-xs text-slate-500">{requester?.title}</p></div>
                 <div className="border border-slate-100 bg-slate-50 p-4"><p className="text-[11px] font-semibold uppercase text-slate-400">Independent approver</p><p className="mt-1 font-medium text-ink">{approver?.name}</p><p className="text-xs text-slate-500">{approver?.title}</p></div>
               </div>
+              <div className="mt-3 border border-slate-100 bg-white p-3 text-sm">
+                <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-400">Authority (delegation)</p>
+                <p className="mt-1 text-slate-700">
+                  {requester?.name} delegated scope <span className="font-mono font-semibold text-ink">{delegationScopes.join(", ") || "wire_transfer"}</span> to {manifest.agent.name}; the requested action ({manifest.action.name}) is within that delegated capability.
+                </p>
+              </div>
             </section>
 
             {phase === "pending_approval" && approval && (
               <section className="border border-amber-300 bg-amber-50/40 p-6">
                 <p className="text-xs font-semibold uppercase tracking-[0.16em] text-amber-800">Request requires human approval</p>
                 <p className="mt-2 text-sm text-slate-700">A high-value wire is only allowed with a one-time approval by a distinct, eligible human — never the requester.</p>
+                <div className="mt-3 flex flex-wrap gap-2 text-xs">
+                  <span className="rounded border border-emerald-200 bg-emerald-50 px-2 py-1 font-medium text-emerald-800">Payload digest-bound — any change after approval blocks execution</span>
+                  {approval.expires_at && <span className="rounded border border-slate-200 bg-white px-2 py-1 text-slate-600">Approval expires {new Date(approval.expires_at).toLocaleString()}</span>}
+                  <span className="rounded border border-slate-200 bg-white px-2 py-1 text-slate-600">Policy: {manifest.policy.name} v{manifest.policy.version} (allow rule; high-risk ⇒ approval)</span>
+                </div>
                 <div className="mt-4 grid gap-4 sm:grid-cols-2">
                   <div className="border border-slate-200 bg-white p-4">
                     <p className="text-[11px] font-semibold uppercase text-slate-400">Why risk is {gateway?.risk_classification ?? "--"}</p>
@@ -261,10 +280,13 @@ export default function DemoPage() {
                 {decidedApproved && !executed && <p className="mt-2 text-2xl font-bold text-ink">APPROVED — awaiting/checking execution evidence</p>}
                 {blockedByReviewer && <p className="mt-2 text-2xl font-bold text-red-800">BLOCKED — REJECTED BY APPROVER · NOT EXECUTED</p>}
                 <div className="mt-4 grid gap-3 text-sm sm:grid-cols-2 xl:grid-cols-3">
-                  {[["Principal", requester?.name], ["Action", `${money(amount, currency)} ${currency} wire`], ["Approver", approver?.name], ["Integrity", "Payload verified unchanged"], ["Revalidation", "TOCTOU security revalidation passed"], ["Execution", executed ? `Sandbox · ${obs?.execution.provider_transaction_id ?? ""}` : "Not executed"]].map(([label, value]) => (
+                  {[["Principal", requester?.name], ["Action", `${money(amount, currency)} ${currency} wire`], ["Approver", approver?.name], ["Integrity", "Payload verified unchanged"], ["Revalidation", "TOCTOU security revalidation passed"], ["Execution record", executed ? `Sandbox · ${obs?.execution.provider_transaction_id ?? ""}` : "Not executed"]].map(([label, value]) => (
                     <div key={label} className="border border-slate-200 bg-white/70 p-3"><p className="text-[10px] uppercase tracking-wide text-slate-400">{label}</p><p className="mt-0.5 font-medium text-ink">{value}</p></div>
                   ))}
                 </div>
+                {executed && (
+                  <p className="mt-3 text-xs text-emerald-800">FinancialExecution ledger: {obs?.execution.status} — recorded by {obs?.execution.provider_name} under action request {approval?.action_request_id}</p>
+                )}
               </section>
             )}
 
