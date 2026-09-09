@@ -17,10 +17,11 @@ from app.api.auth_tokens import router as auth_tokens_router
 from app.api.deps import require_rest_auth
 from app.api.mcp import mcp_app
 
+_allowed_origins = [origin.strip() for origin in settings.frontend_origin.split(",") if origin.strip()] or ["http://localhost:3000"]
 app = FastAPI(title=settings.app_name, version=settings.app_version)
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=[settings.frontend_origin],
+    allow_origins=_allowed_origins,
     allow_credentials=False,
     allow_methods=["GET", "POST", "PATCH"],
     allow_headers=["*"],
