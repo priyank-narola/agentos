@@ -87,8 +87,36 @@ class GatewayService:
         )).all())
         risk = self.risk_engine.evaluate(RiskContext(agent=agent, tool=tool, action=action, resource=resource, delegations=tuple(delegations), parameters=clean_params, evaluated_at=evaluated_at))
         self._audit("RISK_EVALUATED", principal.id, agent.id, request.id, None, {**self._risk_data(risk), "payload_digest": payload_digest}, tenant_id=tenant_id)
+
+        # Intelligence Assessment (advisory only — never replaces the policy engine)
+        intelligence_result = None
+        try:
+            from app.intelligence.assessor import assess as intelligence_assess
+            intel = intelligence_assess(self.db, agent, principal, action, tool, resource, clean_params, tenant_id)
+            intel_dict = intel.to_dict()
+            intel_dict["deterministic_decision"] = None  # filled after policy evaluation
+            self._audit("INTELLIGENCE_ASSESSMENT", principal.id, agent.id, request.id, None, {
+                "assessment_id": intel_dict["assessment_id"],
+                "risk_level": intel_dict["risk"]["level"],
+                "risk_score": intel_dict["risk"]["score"],
+                "anomaly_level": intel_dict["anomaly"]["level"],
+                "intent_category": intel_dict["intent"]["category"],
+                "threat_count": len(intel_dict["threats"]["threats"]),
+                "highest_threat_severity": intel_dict["threats"]["highest_severity"],
+                "policy_recommendation": intel_dict["policy_recommendation"]["recommendation"],
+                "engine_version": intel_dict["engine_version"],
+                "reasoning": intel_dict["reasoning"],
+                "security_rule": "AI/Intelligence recommends. The deterministic policy engine decides.",
+                "payload_digest": payload_digest,
+            }, tenant_id=tenant_id)
+            intelligence_result = intel_dict
+        except Exception:
+            pass  # Intelligence failure must never block the deterministic pipeline
+
         result = self.evaluator.evaluate(EvaluationInput(principal.id, agent.id, tool.id, action.id, resource.id, clean_params, {"risk_score": risk.score, "risk_classification": risk.classification}, evaluated_at, risk.score, risk.classification), ResolvedRecords(principal, agent, tool, action, resource, delegations, self.policies.list_active_policies(tenant_id=tenant_id)))
         self._audit("POLICY_EVALUATED", principal.id, agent.id, request.id, None, {"decision": result.decision, "reason_code": result.reason_code, "payload_digest": payload_digest}, tenant_id=tenant_id)
+        if intelligence_result is not None:
+            intelligence_result["deterministic_decision"] = result.decision
         decision_value = DecisionType.ALLOW if result.decision == "ALLOW" else DecisionType.BLOCK if result.decision == "DENY" else DecisionType.REQUIRE_APPROVAL
         request.status = ActionRequestStatus.APPROVAL_PENDING if result.decision == "REQUIRE_APPROVAL" else ActionRequestStatus.EVALUATED
         matched = result.matched_policies[0] if result.matched_policies else None

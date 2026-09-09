@@ -96,9 +96,28 @@ export type ObservabilityMetrics = { tenant_id: string; total_action_requests: n
 export type TenantPosture = { tenant_id: string; active_principals: number; active_agents: number; active_delegations: number; action_volume: number; approval_volume: number; execution_volume: number; security_violations: number; high_risk_activity: number; };
 export type AuditVerify = { tenant_id: string; audit_integrity_status: string; total_requests_verified: number; violation_count: number; violations: Array<{ type: string; action_request_id: string; description?: string }>; };
 export type WhoAmI = { authenticated: boolean; principal?: { id: string; name: string; external_id: string; type: string } | null; tenant_id?: string | null; tenant_name?: string | null; };
+export type IntelligenceAssessmentResult = {
+  assessment_id?: string;
+  status?: string;
+  message?: string;
+  engine_version: string;
+  overall_confidence: number;
+  reasoning: string;
+  action_context_summary?: Record<string, unknown>;
+  risk?: { score: number; level: string; factors: Array<{ code: string; label: string; weight: number; reasoning: string }>; recommended_control: string; confidence: number; reasoning: string };
+  intent?: { normalized_intent: string; category: string; confidence: number; suspicious_indicators: string[]; provider: string };
+  anomaly?: { level: string; signals: Array<{ code: string; label: string; level: string; reasoning: string }>; baseline_summary: Record<string, unknown>; reasoning: string };
+  threats?: { threats: Array<{ type: string; severity: string; confidence: number; reasoning: string; recommended_action: string }>; highest_severity: string; reasoning: string };
+  policy_recommendation?: { recommendation: string; confidence: number; reasoning: string; is_advisory: boolean; disclaimer: string };
+  security_rule?: string;
+};
+
+export type CorpusStats = { total: number; provenance: Record<string, number>; schema_version: string };
 
 export const api = {
   me: () => request<WhoAmI>("/api/v1/auth/me"),
+  intelligenceAssessDemo: () => request<IntelligenceAssessmentResult>("/api/v1/intelligence/assess-demo", { method: "POST" }),
+  intelligenceCorpusStats: () => request<CorpusStats>("/api/v1/intelligence/corpus/stats"),
   principals: () => request<Principal[]>("/api/v1/principals"),
   delegations: () => request<Delegation[]>("/api/v1/delegations"),
   agents: () => request<Agent[]>("/api/v1/agents"),

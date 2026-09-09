@@ -136,7 +136,7 @@ def test_audit_events_are_appended_for_evaluation_outcome() -> None:
     result = client.post("/api/v1/action-requests", json=body(ids, "audit-key")).json()
     with TestingSession() as session:
         events = session.scalars(select(AuditEvent).where(AuditEvent.action_request_id == UUID(result["action_request_id"])).order_by(AuditEvent.created_at)).all()
-        assert [event.event_type for event in events] == ["ACTION_REQUEST_RECEIVED", "RISK_EVALUATED", "POLICY_EVALUATED", "ACTION_AUTHORIZED"]
+        assert [event.event_type for event in events] == ["ACTION_REQUEST_RECEIVED", "RISK_EVALUATED", "INTELLIGENCE_ASSESSMENT", "POLICY_EVALUATED", "ACTION_AUTHORIZED"]
         risk_event = events[1]
         assert risk_event.event_data["engine_version"] == RiskEngine.VERSION
         assert isinstance(risk_event.event_data["score"], int)
