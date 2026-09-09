@@ -30,6 +30,9 @@ export default function ObservabilityPage() {
     ["High-risk activity", posture?.high_risk_activity ?? "--", "action volume"],
   ];
 
+  const blockedMarkers = ["BLOCKED", "SECURITY_", "TOCTOU", "PAYLOAD_TAMPER", "CROSS_TENANT", "AUTHENTICATION_FAILED", "IDEMPOTENCY_CONFLICT", "CANCELLED", "WEBHOOK"];
+  const securityEvents = events.filter((e) => blockedMarkers.some((m) => e.event_type.startsWith(m) || e.event_type.includes(m)));
+
   return (
     <RegistryShell title="Observability & audit" eyebrow="Governance evidence">
       <p className="mb-6 max-w-3xl text-sm leading-6 text-slate-500">
@@ -86,6 +89,20 @@ export default function ObservabilityPage() {
             )}
           </section>
         </>
+      )}
+
+      {securityEvents.length > 0 && (
+        <section className="mt-6 border border-red-200 bg-white p-6">
+          <h2 className="font-semibold text-ink">Security &amp; blocked events ({securityEvents.length})</h2>
+          <ul className="mt-3 space-y-1">
+            {securityEvents.slice(0, 20).map((event) => (
+              <li key={event.id} className="flex items-baseline justify-between gap-3 border-b border-slate-100 py-1.5 text-sm">
+                <span className="font-medium text-ink">{event.event_type}</span>
+                {event.action_request_id ? <Link href={`/action-requests/${event.action_request_id}`} className="text-xs font-semibold text-signal hover:underline">Trace action →</Link> : <span className="text-xs text-slate-400">{event.actor_type}</span>}
+              </li>
+            ))}
+          </ul>
+        </section>
       )}
     </RegistryShell>
   );

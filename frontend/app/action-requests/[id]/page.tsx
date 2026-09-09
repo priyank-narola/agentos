@@ -2,20 +2,29 @@
 
 import { useEffect, useState } from "react";
 
-import { ActionRequest, Approval, api } from "@/lib/api";
+import { ActionRequest, Approval, ObservabilityActionDetail, TimelineEvent, api } from "@/lib/api";
 import { RegistryShell, StateMessage, StatusPill } from "@/components/registry-shell";
 
 export default function ActionRequestDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const [request, setRequest] = useState<ActionRequest | null>(null);
   const [approval, setApproval] = useState<Approval | null>(null);
+  const [obs, setObs] = useState<ObservabilityActionDetail | null>(null);
+  const [audit, setAudit] = useState<TimelineEvent[]>([]);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     params.then(({ id }) => {
-      Promise.all([api.actionRequest(id), api.approvals()])
-        .then(([requestData, approvalData]) => {
+      api.actionRequest(id)
+        .then(async (requestData) => {
           setRequest(requestData);
-          setApproval(approvalData.find((item) => item.action_request_id === id) ?? null);
+          const approvals = await api.approvals().catch(() => [] as Approval[]);
+          setApproval(approvals.find((item) => item.action_request_id === id) ?? null);
+          if (requestData.tenant_id) {
+            const detail = await api.observabilityActionRequest(id, requestData.tenant_id).catch(() => null);
+            setObs(detail);
+            const t = await api.timeline(requestData.tenant_id).catch(() => null);
+            setAudit(t ? t.events.filter((e) => e.action_request_id === id).sort((a, b) => (a.created_at ?? "").localeCompare(b.created_at ?? "")) : []);
+          }
         })
         .catch((reason: Error) => setError(reason.message));
     });
@@ -50,6 +59,26 @@ export default function ActionRequestDetailPage({ params }: { params: Promise<{ 
         <section className="border border-slate-200 bg-ink p-6 text-white"><p className="text-xs font-semibold uppercase tracking-[0.16em] text-emerald-300">Request lifecycle</p><div className="mt-6 space-y-1">{timeline.map(([label, detail, available], index) => <div key={label as string} className="relative flex gap-4 pb-6"><div className={`relative z-10 mt-0.5 h-3 w-3 shrink-0 rounded-full border ${available ? "border-emerald-300 bg-emerald-300" : "border-slate-600 bg-ink"}`} />{index < timeline.length - 1 && <span className="absolute left-[5px] top-3 h-full w-px bg-white/15" />}<div><p className={`text-xs font-semibold tracking-wide ${available ? "text-white" : "text-slate-500"}`}>{label}</p><p className="mt-1 text-xs leading-5 text-slate-400">{detail}</p></div></div>)}</div></section>
         <div><div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">{[["Agent", request.agent_name], ["Principal", request.principal_id], ["Tool", request.tool_name], ["Action", request.action_name], ["Resource", `${request.resource_type} / ${request.resource_key}`], ["Request status", request.status], ["Requested", new Date(request.requested_at).toLocaleString()], ["Decided", request.decided_at ? new Date(request.decided_at).toLocaleString() : "Unavailable"]].map(([label, value]) => <div key={label} className="border border-slate-200 bg-white p-4"><p className="text-[10px] font-semibold uppercase tracking-wide text-slate-400">{label}</p><p className="mt-2 break-all text-sm text-ink">{value}</p></div>)}</div><div className="mt-4 grid gap-4 lg:grid-cols-2"><section className="border border-slate-200 bg-white p-5"><h2 className="font-semibold text-ink">Request parameters</h2><pre className="mt-4 overflow-auto bg-slate-50 p-4 text-xs text-slate-600">{JSON.stringify(request.parameters, null, 2)}</pre></section><section className="border border-slate-200 bg-white p-5"><h2 className="font-semibold text-ink">Risk factors</h2><div className="mt-4 space-y-3">{request.risk_factors.length === 0 ? <p className="text-sm text-slate-500">Risk factors unavailable.</p> : request.risk_factors.map((factor) => <div key={factor.code} className="flex justify-between gap-4 border-b border-slate-100 pb-3 text-sm"><div><p className="font-medium text-ink">{factor.code}</p><p className="mt-1 text-xs text-slate-500">{factor.explanation}</p></div><span className="font-mono text-signal">+{factor.contribution}</span></div>)}</div></section></div></div>
       </div>
+      {obs && (
+        <div className="mt-6 grid gap-4 md:grid-cols-3">
+          <div className="border border-slate-200 bg-white p-5"><p className="text-[10px] font-semibold uppercase tracking-wide text-slate-400">Execution record</p><p className="mt-2 text-lg font-semibold text-ink">{obs.execution.status ?? "NOT_EXECUTED"}</p><p className="mt-1 text-xs text-slate-500">{obs.execution.provider_name ? `${obs.execution.provider_name} · ${obs.execution.provider_transaction_id ?? ""}` : "No execution recorded"}</p></div>
+          <div className="border border-slate-200 bg-white p-5"><p className="text-[10px] font-semibold uppercase tracking-wide text-slate-400">Approval</p><p className="mt-2 text-lg font-semibold text-ink">{obs.approval.status ?? "Not required"}</p><p className="mt-1 text-xs text-slate-500">Requested by {obs.approval.requested_by ?? "—"} {obs.approval.decided_by ? `· decided by ${obs.approval.decided_by}` : ""}</p></div>
+          <div className="border border-slate-200 bg-white p-5"><p className="text-[10px] font-semibold uppercase tracking-wide text-slate-400">Policy decision</p><p className="mt-2 text-lg font-semibold text-ink">{obs.policy.decision ?? "—"}</p><p className="mt-1 text-xs text-slate-500">{obs.policy.reason_code ? `${obs.policy.reason_code} — ${obs.policy.reason ?? ""}` : ""}</p></div>
+        </div>
+      )}
+      {audit.length > 0 && (
+        <section className="mt-6 border border-slate-200 bg-white p-6">
+          <h2 className="font-semibold text-ink">Audit trail ({audit.length} events)</h2>
+          <ol className="mt-4 space-y-1">
+            {audit.map((event) => (
+              <li key={event.id} className="flex items-baseline justify-between gap-4 border-b border-slate-100 py-1.5 text-sm">
+                <span className="font-medium text-ink">{event.event_type}</span>
+                <span className="text-xs text-slate-400">{event.created_at ? new Date(event.created_at).toLocaleString() : ""}</span>
+              </li>
+            ))}
+          </ol>
+        </section>
+      )}
       <p className="mt-6 border border-amber-200 bg-amber-50 p-4 text-xs font-semibold text-amber-800">SANDBOX DEMONSTRATION — NO REAL MONEY MOVEMENT. Authorized executions run in the sandbox provider only.</p>
     </RegistryShell>
   );

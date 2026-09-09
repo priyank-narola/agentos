@@ -1,10 +1,30 @@
-import Link from "next/link";
+"use client";
 
-const links = [{ href: "/", label: "Overview" }, { href: "/demo", label: "Flagship demo" }, { href: "/gateway", label: "Runtime gateway" }, { href: "/action-requests", label: "Action requests" }, { href: "/approvals", label: "Approvals" }, { href: "/observability", label: "Observability" }, { href: "/agents", label: "Agents" }, { href: "/tools", label: "Tools" }, { href: "/resources", label: "Resources" }, { href: "/policies", label: "Policies" }, { href: "/policy-evaluation", label: "Policy evaluation" }];
+import { AppNav } from "@/components/app-nav";
 
 export function RegistryShell({ children, title, eyebrow }: { children: React.ReactNode; title: string; eyebrow: string }) {
-  return <main className="min-h-screen lg:flex"><aside className="border-b border-slate-200 bg-ink px-6 py-6 text-slate-300 lg:min-h-screen lg:w-64 lg:border-b-0 lg:border-r"><div className="mb-12 flex items-center gap-3 text-white"><span className="grid h-9 w-9 place-items-center rounded bg-signal text-sm font-bold">A</span><div><p className="font-semibold tracking-wide">AgentOS</p><p className="text-xs text-slate-400">AI Action Governance</p></div></div><nav aria-label="Primary navigation" className="space-y-2">{links.map((link, index) => <Link key={link.label} href={link.href} className={`block rounded px-3 py-2.5 text-sm ${index === 0 ? "text-slate-300" : "text-slate-400 hover:bg-white/10 hover:text-white"}`}>{link.label}</Link>)}</nav><div className="mt-16 border-t border-white/10 pt-5 text-xs leading-5 text-slate-500">Control center<br />Sandbox execution only — no real money movement</div></aside><section className="min-w-0 flex-1 px-5 py-7 lg:px-10 lg:py-9"><header className="mb-8 flex flex-wrap items-end justify-between gap-4 border-b border-slate-200 pb-6"><div><p className="mb-2 text-xs font-semibold uppercase tracking-[0.18em] text-signal">{eyebrow}</p><h1 className="text-3xl font-semibold tracking-tight text-ink">{title}</h1></div><span className="rounded-full border border-amber-300 bg-amber-50 px-3 py-1.5 text-xs font-semibold text-amber-800">SANDBOX · NO REAL MONEY</span></header>{children}</section></main>;
+  return (
+    <main className="min-h-screen bg-[#f4f6f5] lg:flex">
+      <aside className="border-b border-slate-200 bg-ink px-6 py-6 text-slate-300 lg:min-h-screen lg:w-64 lg:border-b-0 lg:border-r">
+        <AppNav />
+      </aside>
+      <section className="min-w-0 flex-1 px-5 py-7 lg:px-10 lg:py-9">
+        <header className="mb-8 flex flex-wrap items-end justify-between gap-4 border-b border-slate-200 pb-6">
+          <div>
+            <p className="mb-2 text-xs font-semibold uppercase tracking-[0.18em] text-signal">{eyebrow}</p>
+            <h1 className="text-3xl font-semibold tracking-tight text-ink">{title}</h1>
+          </div>
+          <span className="rounded-full border border-amber-300 bg-amber-50 px-3 py-1.5 text-xs font-semibold text-amber-800">SANDBOX · NO REAL MONEY</span>
+        </header>
+        {children}
+      </section>
+    </main>
+  );
 }
 
-export function StateMessage({ children, tone = "muted" }: { children: React.ReactNode; tone?: "muted" | "error" }) { return <div className={`border p-6 text-sm ${tone === "error" ? "border-red-200 bg-red-50 text-red-800" : "border-dashed border-slate-300 bg-white text-slate-500"}`}>{children}</div>; }
-export function StatusPill({ value }: { value: string }) { return <span className="rounded-full border border-slate-200 bg-slate-50 px-2.5 py-1 text-xs font-medium text-slate-600">{value}</span>; }
+export function StateMessage({ children, tone = "muted" }: { children: React.ReactNode; tone?: "muted" | "error" }) {
+  return <div className={`border p-6 text-sm ${tone === "error" ? "border-red-200 bg-red-50 text-red-800" : "border-dashed border-slate-300 bg-white text-slate-500"}`}>{children}</div>;
+}
+export function StatusPill({ value }: { value: string }) {
+  return <span className="rounded-full border border-slate-200 bg-slate-50 px-2.5 py-1 text-xs font-medium text-slate-600">{value}</span>;
+}

@@ -90,6 +90,13 @@ Documentation is substantially stale. Known contradictions: "external execution 
 - CUSTOMER EVIDENCE: none.
 - Inference vs fact: always label; never present one as the other.
 
+## Product Experience (God-Mode demo sprint — 8 September 2026)
+- Unified product navigation (grouped, active-state): Flagship demo / Control center / Action gateway / Agent governance / Observability.
+- Flagship `/demo` is a guided lifecycle experience: pre-run explainer, stage tracker (Request → Identify → Authorize → Evaluate → Approve → Revalidate → Execute → Audit), Action Card, distinct-approver approval step, "ACTION GOVERNED" proof view, reset/rerun, and an integrated attack/failure scenario board (unauthorized, tamper, revocation, cross-tenant, duplicate, timeout) — all reusing the verified governance engine.
+- Delegations page and Tools-as-capabilities page added; action-request detail now drills down to Execution record, Approval, Policy decision, and per-action Audit trail via a server-derived `tenant_id` on the detail API.
+- Observability page surfaces security/blocked events with per-action tracing.
+- Verified live on PostgreSQL: flagship approve path (request `8a1334ba-fd1f-4f27-af86-fe37efb61bde`, approval `95d90b69-7f50-4d9e-a222-f1a62add46f4`, risk 75/CRITICAL, execution SUCCEEDED, 8 audit events) and all seven failure scenarios. Frontend typecheck/lint/build pass. See `docs/GOD_MODE_PRODUCT_DEMO_REPORT.md`.
+
 ## 13. Next Decision
 
 Before further development or before hosting the demo beyond localhost, decide (founder): (1) begin customer discovery with the treasury demo as the artifact (no code needed), and/or (2) authorize the P0 REST authentication + tenant authorization work as a prerequisite for any external/customer-hosted exposure. Do not start either automatically.

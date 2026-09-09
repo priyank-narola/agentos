@@ -276,6 +276,7 @@ class GatewayResponse(BaseModel):
 
 class ActionRequestDetailSchema(BaseModel):
     id: UUID
+    tenant_id: UUID
     agent_id: UUID
     agent_name: str
     principal_id: UUID

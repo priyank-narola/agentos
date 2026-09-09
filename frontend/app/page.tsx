@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useEffect, useState } from "react";
 
 import { ActionRequest, Agent, Approval, api } from "@/lib/api";
+import { AppNav } from "@/components/app-nav";
 import { StateMessage, StatusPill } from "@/components/registry-shell";
 
 const pipeline = [
@@ -60,20 +61,15 @@ export default function Home() {
   return (
     <main className="min-h-screen bg-[#f4f6f5] lg:flex">
       <aside className="border-b border-slate-200 bg-ink px-6 py-6 text-slate-300 lg:min-h-screen lg:w-64 lg:border-b-0 lg:border-r">
-        <div className="mb-12 flex items-center gap-3 text-white"><span className="grid h-9 w-9 place-items-center rounded bg-signal text-sm font-bold">A</span><div><p className="font-semibold tracking-wide">AgentOS</p><p className="text-xs text-slate-400">AI Action Governance</p></div></div>
-        <nav aria-label="Primary navigation" className="space-y-2">
-          {["Overview", ["Flagship demo", "/demo"], ["Runtime gateway", "/gateway"], ["Action requests", "/action-requests"], ["Approvals", "/approvals"], ["Observability", "/observability"], ["Agents", "/agents"], ["Tools", "/tools"], ["Resources", "/resources"], ["Policies", "/policies"], ["Policy evaluation", "/policy-evaluation"]].map((item, index) => {
-            const label = Array.isArray(item) ? item[0] : item;
-            const href = Array.isArray(item) ? item[1] : "/";
-            return <Link key={label} href={href} className={`block rounded px-3 py-2.5 text-sm ${index === 0 ? "bg-white/10 text-white" : "text-slate-400 hover:bg-white/10 hover:text-white"}`}>{label}</Link>;
-          })}
-        </nav>
-        <div className="mt-16 border-t border-white/10 pt-5 text-xs leading-5 text-slate-500">Control center<br />Sandbox execution only — no real money movement</div>
+        <AppNav />
       </aside>
       <section className="min-w-0 flex-1 px-5 py-7 lg:px-10 lg:py-9">
         <header className="mb-7 flex flex-wrap items-end justify-between gap-5 border-b border-slate-200 pb-7">
-          <div><p className="mb-2 text-xs font-semibold uppercase tracking-[0.2em] text-signal">AgentOS control center</p><h1 className="text-3xl font-semibold tracking-tight text-ink lg:text-4xl">AI Action Governance &amp; Control Plane</h1><p className="mt-3 max-w-2xl text-sm leading-6 text-slate-500">Govern, evaluate, approve, and audit AI-initiated actions before they reach the real world.</p></div>
-          <div className="border border-amber-300 bg-white px-4 py-3"><p className="text-[10px] font-bold uppercase tracking-[0.16em] text-amber-600">Execution boundary</p><p className="mt-1 text-lg font-semibold text-amber-800">SANDBOX ONLY</p></div>
+          <div><p className="mb-2 text-xs font-semibold uppercase tracking-[0.2em] text-signal">AgentOS control center</p><h1 className="text-3xl font-semibold tracking-tight text-ink lg:text-4xl">AI Action Governance &amp; Control Plane</h1><p className="mt-3 max-w-2xl text-sm leading-6 text-slate-500">Before an AI agent can perform a consequential action, AgentOS decides whether it is authorized, evaluates its risk, obtains human approval when required, revalidates it, executes it in a sandbox, and records the evidence.</p></div>
+          <div className="flex flex-col items-end gap-2">
+            <Link href="/demo" className="bg-signal px-4 py-3 text-sm font-medium text-white hover:bg-signal/90">Run Treasury Governance Demo</Link>
+            <div className="border border-amber-300 bg-white px-4 py-2"><p className="text-[10px] font-bold uppercase tracking-[0.16em] text-amber-600">Execution boundary</p><p className="mt-0.5 text-base font-semibold text-amber-800">SANDBOX ONLY</p></div>
+          </div>
         </header>
 
         {loading && <StateMessage>Loading control-plane telemetry...</StateMessage>}
