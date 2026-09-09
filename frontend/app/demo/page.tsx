@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useState } from "react";
 
 import {
-  Approval, ApproverCandidate, GatewayResponse, ObservabilityActionDetail, TimelineEvent, TreasuryManifest, api,
+  Approval, ApproverCandidate, GatewayResponse, ObservabilityActionDetail, TimelineEvent, TreasuryManifest, api, devTokenFor,
 } from "@/lib/api";
 import { RegistryShell, StateMessage } from "@/components/registry-shell";
 
@@ -72,6 +72,7 @@ export default function DemoPage() {
     setError(null);
     setBusy("gateway");
     try {
+      await devTokenFor(manifest.requester.external_id).catch(() => undefined);
       const params = {
         source_account_id: manifest.resource.resource_key,
         destination_account_id: "ACC-VENDOR-8888",
@@ -106,13 +107,16 @@ export default function DemoPage() {
     if (!approval || !approverId) return;
     setError(null); setBusy(mode);
     try {
+      const candidate = approvers.find((c) => c.id === approverId);
+      const externalId = candidate?.external_id ?? manifest?.approver.external_id;
+      if (externalId) await devTokenFor(externalId).catch(() => undefined);
       const updated = await api[mode](approval.id, approverId);
       setPhase(mode === "approve" ? "decided" : "blocked");
       await loadEvidence(updated);
     } catch (reason) {
       setError(reason instanceof Error ? reason.message : `${mode} failed`);
     } finally { setBusy(null); }
-  }, [approval, approverId, loadEvidence]);
+  }, [approval, approverId, approvers, manifest, loadEvidence]);
 
   const runScenario = useCallback(async (key: string) => {
     setRunningScenario(key); setError(null);

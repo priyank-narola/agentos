@@ -1,6 +1,7 @@
 "use client";
 
 import { AppNav } from "@/components/app-nav";
+import { IdentityBar } from "@/components/identity-bar";
 
 export function RegistryShell({ children, title, eyebrow }: { children: React.ReactNode; title: string; eyebrow: string }) {
   return (
@@ -14,7 +15,10 @@ export function RegistryShell({ children, title, eyebrow }: { children: React.Re
             <p className="mb-2 text-xs font-semibold uppercase tracking-[0.18em] text-signal">{eyebrow}</p>
             <h1 className="text-3xl font-semibold tracking-tight text-ink">{title}</h1>
           </div>
-          <span className="rounded-full border border-amber-300 bg-amber-50 px-3 py-1.5 text-xs font-semibold text-amber-800">SANDBOX · NO REAL MONEY</span>
+          <div className="flex flex-wrap items-center justify-end gap-3">
+            <IdentityBar />
+            <span className="rounded-full border border-amber-300 bg-amber-50 px-3 py-1.5 text-xs font-semibold text-amber-800">SANDBOX · NO REAL MONEY</span>
+          </div>
         </header>
         {children}
       </section>

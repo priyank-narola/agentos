@@ -7,19 +7,40 @@ Principal through the same signed-token path used everywhere else.
 """
 
 from datetime import datetime, timedelta, timezone
+from typing import Any
 
 import jwt
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Request, status
 from pydantic import BaseModel
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from app.api.deps import rest_signing_secret
+from app.api.deps import require_rest_auth, rest_signing_secret
 from app.config import settings
-from app.db.models import Principal, PrincipalStatus
+from app.db.models import Principal, PrincipalStatus, Tenant
 from app.db.session import get_db
 
 router = APIRouter(prefix="/api/v1/auth", tags=["auth"])
+
+
+@router.get("/me", dependencies=[Depends(require_rest_auth)])
+def who_am_i(request: Request, db: Session = Depends(get_db)) -> dict[str, Any]:
+    """Return the authenticated principal + server-derived tenant context.
+
+    In an enforced deployment an unauthenticated call returns 401. In the local
+    development demo (auth not enforced) it returns an unauthenticated marker so
+    the UI can offer the demo identity switcher without fabricating authority.
+    """
+    principal = getattr(request.state, "principal", None)
+    if principal is None:
+        return {"authenticated": False, "principal": None, "tenant_id": None, "tenant_name": None}
+    tenant = db.get(Tenant, principal.tenant_id)
+    return {
+        "authenticated": True,
+        "principal": {"id": str(principal.id), "name": principal.name, "external_id": principal.external_id, "type": principal.type.value if hasattr(principal.type, "value") else str(principal.type)},
+        "tenant_id": str(principal.tenant_id),
+        "tenant_name": tenant.name if tenant else None,
+    }
 
 
 class DevTokenRequest(BaseModel):

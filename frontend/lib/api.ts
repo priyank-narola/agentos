@@ -1,5 +1,79 @@
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL;
 
+export class ApiError extends Error {
+  status: number;
+  constructor(status: number, message: string) {
+    super(message);
+    this.status = status;
+    this.name = "ApiError";
+  }
+}
+
+let accessToken: string | null = null;
+let autoLoginAttempted = false;
+
+export function setAccessToken(token: string | null) {
+  accessToken = token;
+}
+export function getAccessToken() {
+  return accessToken;
+}
+
+/** Development-only token issuance (mirrors POST /api/v1/auth/dev-token). */
+async function fetchDevToken(externalId: string): Promise<string> {
+  const response = await fetch(`${API_BASE_URL}/api/v1/auth/dev-token`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ external_id: externalId }),
+  });
+  if (!response.ok) throw new ApiError(response.status, `Unable to obtain a development token for ${externalId}`);
+  const body = (await response.json()) as { access_token: string };
+  setAccessToken(body.access_token);
+  return body.access_token;
+}
+
+export function devTokenFor(externalId: string) {
+  return fetchDevToken(externalId);
+}
+
+async function request<T>(path: string, init?: RequestInit): Promise<T> {
+  if (!API_BASE_URL) throw new Error("NEXT_PUBLIC_API_BASE_URL is not configured");
+  const attempt = async (): Promise<T> => {
+    const headers: Record<string, string> = { "Content-Type": "application/json", ...(init?.headers as Record<string, string> | undefined) };
+    if (accessToken) headers["Authorization"] = `Bearer ${accessToken}`;
+    const response = await fetch(`${API_BASE_URL}${path}`, { cache: "no-store", headers, ...init });
+    if (!response.ok) {
+      let detail = "";
+      try {
+        const data = await response.json();
+        detail = typeof data?.detail === "string" ? data.detail : "";
+      } catch {
+        /* ignore body */
+      }
+      throw new ApiError(response.status, detail || `API request failed (${response.status})`);
+    }
+    return response.json() as Promise<T>;
+  };
+  try {
+    return await attempt();
+  } catch (error) {
+    // In an enforced deployment the first anonymous call returns 401. Auto-obtain a
+    // development token (development mode only; production uses the real IdP token
+    // injected by the host) and retry exactly once.
+    if (error instanceof ApiError && error.status === 401 && !accessToken && !autoLoginAttempted) {
+      autoLoginAttempted = true;
+      const externalId = process.env.NEXT_PUBLIC_AUTH_DEV_PRINCIPAL || "demo-admin";
+      try {
+        await fetchDevToken(externalId);
+        return await attempt();
+      } catch {
+        /* surface the original 401 if login fails */
+      }
+    }
+    throw error;
+  }
+}
+
 export type Agent = { id: string; name: string; description?: string | null; owner_principal_id: string; purpose: string; version: string; status: "ACTIVE" | "SUSPENDED" | "RETIRED"; risk_classification: "LOW" | "MEDIUM" | "HIGH"; };
 export type Delegation = { id: string; principal_id: string; agent_id: string; scope: string; status: string; issued_at: string; expires_at?: string | null; };
 export type Action = { id: string; tool_id: string; name: string; description: string; risk_level: "LOW" | "MEDIUM" | "HIGH"; status: "ACTIVE" | "DISABLED" | "RETIRED"; };
@@ -21,15 +95,10 @@ export type TimelineEvent = { id: string; event_type: string; actor_type: string
 export type ObservabilityMetrics = { tenant_id: string; total_action_requests: number; pending_approvals: number; approved_executions: number; rejected_actions: number; toctou_violations: number; payload_tampering_attempts: number; authentication_failures: number; cross_tenant_attempts: number; webhook_failures: number; idempotency_conflicts: number; execution_failures_timeouts: number; };
 export type TenantPosture = { tenant_id: string; active_principals: number; active_agents: number; active_delegations: number; action_volume: number; approval_volume: number; execution_volume: number; security_violations: number; high_risk_activity: number; };
 export type AuditVerify = { tenant_id: string; audit_integrity_status: string; total_requests_verified: number; violation_count: number; violations: Array<{ type: string; action_request_id: string; description?: string }>; };
-
-async function request<T>(path: string, init?: RequestInit): Promise<T> {
-  if (!API_BASE_URL) throw new Error("NEXT_PUBLIC_API_BASE_URL is not configured");
-  const response = await fetch(`${API_BASE_URL}${path}`, { cache: "no-store", headers: { "Content-Type": "application/json" }, ...init });
-  if (!response.ok) throw new Error(`API request failed (${response.status})`);
-  return response.json() as Promise<T>;
-}
+export type WhoAmI = { authenticated: boolean; principal?: { id: string; name: string; external_id: string; type: string } | null; tenant_id?: string | null; tenant_name?: string | null; };
 
 export const api = {
+  me: () => request<WhoAmI>("/api/v1/auth/me"),
   principals: () => request<Principal[]>("/api/v1/principals"),
   delegations: () => request<Delegation[]>("/api/v1/delegations"),
   agents: () => request<Agent[]>("/api/v1/agents"),

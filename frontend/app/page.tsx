@@ -5,6 +5,7 @@ import { useEffect, useState } from "react";
 
 import { ActionRequest, Agent, Approval, api } from "@/lib/api";
 import { AppNav } from "@/components/app-nav";
+import { IdentityBar } from "@/components/identity-bar";
 import { StateMessage, StatusPill } from "@/components/registry-shell";
 
 const pipeline = [
@@ -67,6 +68,7 @@ export default function Home() {
         <header className="mb-7 flex flex-wrap items-end justify-between gap-5 border-b border-slate-200 pb-7">
           <div><p className="mb-2 text-xs font-semibold uppercase tracking-[0.2em] text-signal">AgentOS control center</p><h1 className="text-3xl font-semibold tracking-tight text-ink lg:text-4xl">AI Action Governance &amp; Control Plane</h1><p className="mt-3 max-w-2xl text-sm leading-6 text-slate-500">Before an AI agent can perform a consequential action, AgentOS decides whether it is authorized, evaluates its risk, obtains human approval when required, revalidates it, executes it in a sandbox, and records the evidence.</p></div>
           <div className="flex flex-col items-end gap-2">
+            <IdentityBar />
             <Link href="/demo" className="bg-signal px-4 py-3 text-sm font-medium text-white hover:bg-signal/90">Run Treasury Governance Demo</Link>
             <div className="border border-amber-300 bg-white px-4 py-2"><p className="text-[10px] font-bold uppercase tracking-[0.16em] text-amber-600">Execution boundary</p><p className="mt-0.5 text-base font-semibold text-amber-800">SANDBOX ONLY</p></div>
           </div>
