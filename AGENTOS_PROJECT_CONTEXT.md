@@ -1,4 +1,14 @@
-# AgentOS --- Project Context
+<!--
+STATUS: HISTORICAL / LEGACY — 8 September 2026
+This document records the ORIGINAL Prompt2Product Challenge 2026 competition context.
+It is retained for history and MUST NOT be used as the source of truth for current or
+future work. Its statements predate the verified governance pipeline, the financial
+control-plane direction, and the REST authentication gap.
+Canonical references: AGENTOS_OPERATING_PROMPT.md (operating constitution) and
+AGENTOS_STATE.md (current state lock). Verified Git checkpoint: a8d6ddf.
+-->
+
+# AgentOS --- Project Context [LEGACY / HISTORICAL]
 
 ## Prompt2Product Challenge 2026
 

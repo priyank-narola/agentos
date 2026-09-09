@@ -1,4 +1,14 @@
-# AgentOS --- Master Prompt for Claude Code / Claude Opus 4.8
+<!--
+STATUS: HISTORICAL / LEGACY — 8 September 2026
+This document describes the ORIGINAL 36-hour competition build prompt (Prompt2Product
+Challenge 2026). It is retained for history and MUST NOT be used as the operating basis
+for current or future work. It contains obsolete claims (e.g., "external execution
+disabled", competition MVP scope) that contradict the verified runtime.
+Canonical references: AGENTOS_OPERATING_PROMPT.md (operating constitution) and
+AGENTOS_STATE.md (current state lock). Verified Git checkpoint: a8d6ddf.
+-->
+
+# AgentOS --- Master Prompt for Claude Code / Claude Opus 4.8 [LEGACY / HISTORICAL]
 
 You are the primary engineering agent for a time-constrained competition
 project called AgentOS.
