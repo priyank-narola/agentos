@@ -7,6 +7,8 @@ import {
   Approval, ApproverCandidate, GatewayResponse, ObservabilityActionDetail, TimelineEvent, TreasuryManifest, api, devTokenFor,
 } from "@/lib/api";
 import { RegistryShell, StateMessage } from "@/components/registry-shell";
+import { SandboxBadge } from "@/components/ui/Banner";
+import { GOVERNANCE_STAGES } from "@/lib/governance";
 
 type Phase = "idle" | "pending_approval" | "decided" | "blocked";
 
@@ -147,24 +149,51 @@ export default function DemoPage() {
   const requester = manifest?.requester;
   const approver = manifest?.approver;
 
-  const stages: Array<{ label: string; caption: string; state: "done" | "active" | "pending" | "bad" }> = [
-    { label: "Request", caption: gateway ? `Agent requested ${money(amount, currency)} ${currency}` : "Agent requests a wire transfer", state: gateway ? "done" : phase === "idle" ? "pending" : "pending" },
-    { label: "Identify", caption: gateway ? `${manifest?.agent.name} acting for ${requester?.name}` : "Identity & delegation resolved", state: gateway ? "done" : "pending" },
-    { label: "Authorize", caption: gateway ? `Policy: ${gateway.reason_code ?? "evaluated"}` : "Policy evaluation", state: gateway ? "done" : "pending" },
-    { label: "Evaluate", caption: gateway ? `Risk ${gateway.risk_score ?? "--"}/100 · ${gateway.risk_classification ?? "--"}` : "Risk analysis", state: gateway ? "done" : "pending" },
-    { label: "Approve", caption: approval?.status === "PENDING" ? `Requires ${approver?.name}` : approval ? approval.status : "Human approval", state: approval?.status === "PENDING" ? "active" : approval?.status === "APPROVED" ? "done" : approval?.status === "REJECTED" ? "bad" : "pending" },
-    { label: "Revalidate", caption: decidedApproved ? "Security context revalidated before execution" : "TOCTOU / payload revalidation", state: decidedApproved ? "done" : "pending" },
-    { label: "Execute", caption: executed ? `Executed in sandbox (${obs?.execution.provider_transaction_id ?? ""})` : blockedByReviewer ? "Not executed" : "Sandbox execution", state: executed ? "done" : blockedByReviewer ? "bad" : "pending" },
-    { label: "Audit", caption: audit.length ? `${audit.length} audit events recorded` : "Evidence recorded", state: executed && audit.length ? "done" : "pending" },
-  ];
+  const stages: Array<{ label: string; caption: string; state: "done" | "active" | "pending" | "bad" }> = (() => {
+    const stateFor = (
+      id: (typeof GOVERNANCE_STAGES)[number]["id"],
+    ): { caption: string; state: "done" | "active" | "pending" | "bad" } => {
+      switch (id) {
+        case "request":
+          return { caption: gateway ? `Agent requested ${money(amount, currency)} ${currency}` : "Agent requests a wire transfer", state: gateway ? "done" : "pending" };
+        case "identify":
+          return { caption: gateway ? `${manifest?.agent.name} acting for ${requester?.name}` : "Identity & delegation resolved", state: gateway ? "done" : "pending" };
+        case "evaluate":
+          return { caption: gateway ? `Risk ${gateway.risk_score ?? "--"}/100 · ${gateway.risk_classification ?? "--"}` : "Risk analysis", state: gateway ? "done" : "pending" };
+        case "decide":
+          return { caption: gateway ? `Policy: ${gateway.reason_code ?? "evaluated"}` : "Policy evaluation", state: gateway ? "done" : "pending" };
+        case "approve":
+          return {
+            caption: approval?.status === "PENDING" ? `Requires ${approver?.name}` : approval ? approval.status : "Human approval",
+            state: approval?.status === "PENDING" ? "active" : approval?.status === "APPROVED" ? "done" : approval?.status === "REJECTED" ? "bad" : "pending",
+          };
+        case "revalidate":
+          return { caption: decidedApproved ? "Security context revalidated before execution" : "TOCTOU / payload revalidation", state: decidedApproved ? "done" : "pending" };
+        case "execute":
+          return {
+            caption: executed ? `Executed in sandbox (${obs?.execution.provider_transaction_id ?? ""})` : blockedByReviewer ? "Not executed" : "Sandbox execution",
+            state: executed ? "done" : blockedByReviewer ? "bad" : "pending",
+          };
+        case "audit":
+          return { caption: audit.length ? `${audit.length} audit events recorded` : "Evidence recorded", state: executed && audit.length ? "done" : "pending" };
+      }
+    };
+    return GOVERNANCE_STAGES.map((stage) => ({ label: stage.label, ...stateFor(stage.id) }));
+  })();
 
   const stageColor: Record<string, string> = { done: "border-emerald-400 bg-emerald-400", active: "border-amber-300 bg-amber-300", bad: "border-red-500 bg-red-500", pending: "border-slate-400 bg-ink" };
 
   return (
     <RegistryShell title="Treasury governance demo" eyebrow="Guided demonstration">
-      <div className="mb-6 flex flex-wrap items-center justify-between gap-3 rounded border border-amber-300 bg-amber-50 px-5 py-4">
-        <p className="text-sm font-semibold text-amber-900">SANDBOX DEMONSTRATION — NO REAL MONEY MOVEMENT</p>
-        <p className="text-xs text-amber-800">Every action executes inside the AgentOS sandbox payment provider only.</p>
+      <p className="mb-6 max-w-3xl text-sm leading-6 text-inkSubtle">
+        Watch a complete governed action end to end: request → identify → evaluate → decide → approve → revalidate → execute → audit. Every action runs in the AgentOS sandbox provider — no real money movement.
+      </p>
+      <div className="mb-6 flex flex-wrap items-center justify-between gap-3 rounded-card border border-hairline bg-surface px-4 py-3">
+        <p className="inline-flex items-center gap-2 text-[13px] font-medium text-inkSubtle">
+          <span aria-hidden className="h-1.5 w-1.5 rounded-full bg-signal" />
+          Demo environment · deterministic governance · sandbox execution
+        </p>
+        <SandboxBadge />
       </div>
 
       {error && <StateMessage tone="error">{error}</StateMessage>}

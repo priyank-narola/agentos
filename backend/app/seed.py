@@ -121,3 +121,8 @@ if __name__ == "__main__":
         raise SystemExit("DATABASE_URL must be configured before seeding")
     with SessionLocal() as db:
         print(seed_demo(db))
+        # Populate coherent governance activity (drives the real gateway/approval
+        # pipeline) so the control-plane surfaces are not empty in local dev.
+        from app.seed_activity import seed_default_tenant_activity
+
+        print(seed_default_tenant_activity(db))

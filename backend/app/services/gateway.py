@@ -1,4 +1,5 @@
 import json
+import logging
 from datetime import datetime, timezone
 from uuid import UUID
 
@@ -6,6 +7,8 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.db.models import ActionRequest, ActionRequestStatus, Action, Agent, ApprovalRequest, AuditEvent, ActorType, Decision, DecisionType, Delegation, Resource, Tool, Principal, DEFAULT_TENANT_ID
+
+logger = logging.getLogger(__name__)
 from app.policy import DeterministicPolicyEvaluator, EvaluationInput, ResolvedRecords
 from app.repositories.gateway import GatewayRepository
 from app.repositories.policy import PolicyRepository
@@ -17,7 +20,7 @@ from app.services.approval import ApprovalService
 
 from app.financial import validate_financial_action_parameters, compute_payload_digest, FinancialValidationError
 from app.execution import SandboxPaymentProvider, ExecutionStatus
-from app.services.execution_ledger import persist_execution_result
+from app.services.execution_ledger import persist_execution_result, fetch_execution_status
 
 
 class GatewayIdempotencyConflict(RegistryConflictError):
@@ -50,7 +53,7 @@ class GatewayService:
         if agent.tenant_id != tenant_id or resource.tenant_id != tenant_id:
             raise GatewayIdempotencyConflict("Tenant mismatch: cross-tenant reference detected")
 
-        existing = self.repository.get_by_idempotency_key(payload.idempotency_key, tenant_id=tenant_id)
+        existing = self.repository.get_by_idempotency_key(payload.idempotency_key, tenant_id=tenant_id, lock=True)
         if existing is not None:
             if self._canonical_payload(payload) != self.repository.canonical_content(existing):
                 raise GatewayIdempotencyConflict("Idempotency key is already used with different request content")
@@ -111,7 +114,8 @@ class GatewayService:
             }, tenant_id=tenant_id)
             intelligence_result = intel_dict
         except Exception:
-            pass  # Intelligence failure must never block the deterministic pipeline
+            logger.warning("Intelligence assessment failed for action %s (tenant=%s): %s", action.name, tenant_id, exc_info=True)
+            # Intelligence failure must never block the deterministic pipeline
 
         result = self.evaluator.evaluate(EvaluationInput(principal.id, agent.id, tool.id, action.id, resource.id, clean_params, {"risk_score": risk.score, "risk_classification": risk.classification}, evaluated_at, risk.score, risk.classification), ResolvedRecords(principal, agent, tool, action, resource, delegations, self.policies.list_active_policies(tenant_id=tenant_id)))
         self._audit("POLICY_EVALUATED", principal.id, agent.id, request.id, None, {"decision": result.decision, "reason_code": result.reason_code, "payload_digest": payload_digest}, tenant_id=tenant_id)
@@ -199,7 +203,7 @@ class GatewayService:
         decision_name = "DENY" if decision and decision.decision == DecisionType.BLOCK else decision.decision.value if decision else None
         code, _, reason = (decision.reason.partition(": ") if decision else (None, None, None))
         risk = self._risk_evidence(request)
-        return ActionRequestDetailSchema(id=request.id, tenant_id=request.tenant_id, agent_id=request.agent_id, agent_name=request.agent.name, principal_id=request.principal_id, action_id=request.action_id, action_name=request.action.name, tool_id=request.action.tool.id, tool_name=request.action.tool.name, resource_id=request.resource_id, resource_type=request.resource.resource_type, resource_key=request.resource.resource_key, parameters=request.parameters, status=request.status, idempotency_key=request.idempotency_key, requested_at=request.requested_at, decision=decision_name, reason=reason, reason_code=code, risk_level=request.action.risk_level, risk_score=int(decision.risk_score) if decision and decision.risk_score is not None else None, risk_classification=risk.get("classification"), risk_factors=risk.get("factors", []), risk_engine_version=risk.get("engine_version"), decided_at=decision.decided_at if decision else None)
+        return ActionRequestDetailSchema(id=request.id, tenant_id=request.tenant_id, agent_id=request.agent_id, agent_name=request.agent.name, principal_id=request.principal_id, principal_name=request.principal.name if request.principal else None, action_id=request.action_id, action_name=request.action.name, tool_id=request.action.tool.id, tool_name=request.action.tool.name, resource_id=request.resource_id, resource_type=request.resource.resource_type, resource_key=request.resource.resource_key, parameters=request.parameters, status=request.status, idempotency_key=request.idempotency_key, requested_at=request.requested_at, decision=decision_name, reason=reason, reason_code=code, risk_level=request.action.risk_level, risk_score=int(decision.risk_score) if decision and decision.risk_score is not None else None, risk_classification=risk.get("classification"), risk_factors=risk.get("factors", []), risk_engine_version=risk.get("engine_version"), execution_status=fetch_execution_status(self.db, request.id), decided_at=decision.decided_at if decision else None)
 
     @staticmethod
     def _canonical_payload(payload: GatewayRequestCreate) -> str:

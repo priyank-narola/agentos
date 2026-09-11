@@ -2,40 +2,81 @@
 
 import Link from "next/link";
 import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
+
 import { Approval, api } from "@/lib/api";
-import { RegistryShell, StateMessage, StatusPill } from "@/components/registry-shell";
+import { RegistryShell, StateMessage } from "@/components/registry-shell";
+import { Status } from "@/components/ui/Status";
+import { DataTable, type DataColumn } from "@/components/ui/DataTable";
+import { formatDateTime, shortId } from "@/lib/format";
 
 export default function ApprovalsPage() {
+  const router = useRouter();
   const [approvals, setApprovals] = useState<Approval[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
+
   useEffect(() => {
     api.approvals().then(setApprovals).catch((reason: Error) => setError(reason.message)).finally(() => setLoading(false));
   }, []);
 
+  const pending = approvals.filter((a) => a.status === "PENDING").length;
+
+  const columns: DataColumn<Approval>[] = [
+    {
+      key: "who",
+      header: "Requested by",
+      render: (a) => (
+        <div className="min-w-0">
+          <p className="font-medium text-ink">{a.agent_name}</p>
+          <p className="mt-0.5 truncate text-xs text-inkSubtle">Acting for {a.principal_name ?? shortId(a.principal_id)}</p>
+        </div>
+      ),
+    },
+    { key: "action", header: "Action", render: (a) => <span className="text-ink">{a.action_name}</span> },
+    { key: "resource", header: "Resource", render: (a) => <span className="font-mono text-xs text-inkSubtle">{a.resource_key}</span> },
+    { key: "risk", header: "Risk", render: (a) => <Status value={a.risk_classification ?? "LOW"} /> },
+    { key: "status", header: "Status", render: (a) => <Status value={a.status} /> },
+    {
+      key: "expiry",
+      header: "Expires",
+      headerClassName: "text-right",
+      align: "right",
+      render: (a) => <span className="text-xs text-inkSubtle">{a.status === "PENDING" ? formatDateTime(a.expires_at) : "—"}</span>,
+    },
+  ];
+
   return (
-    <RegistryShell title="Approval queue" eyebrow="Human review boundary">
-      <p className="mb-6 max-w-2xl text-sm leading-6 text-slate-500">
-        Review high-risk actions that policy allowed only with a one-time human decision by a distinct approver. Approving executes the action inside the sandbox only — no real money movement.
-      </p>
+    <RegistryShell title="Approvals" eyebrow="Human review boundary">
+      <div className="mb-6 flex flex-wrap items-center justify-between gap-3">
+        <p className="max-w-2xl text-sm leading-6 text-inkSubtle">
+          High-risk actions that a distinct human must authorize before execution. Approving executes in the sandbox only.
+        </p>
+        <span className="text-xs text-inkFaint">
+          {approvals.length} total · <span className="font-medium text-warning">{pending} pending review</span>
+        </span>
+      </div>
+
       {error && <StateMessage tone="error">Unable to load approvals. {error}</StateMessage>}
       {loading && !error && <StateMessage>Loading the approval queue…</StateMessage>}
-      {!loading && !error && approvals.length === 0 && <StateMessage>No approvals are waiting for review.</StateMessage>}
-      {approvals.length > 0 && (
-        <div className="overflow-hidden border border-slate-200 bg-white">
-          <div className="grid grid-cols-[1.3fr_1fr_0.9fr_0.9fr_0.9fr] gap-4 border-b border-slate-200 bg-slate-50 px-5 py-3 text-xs font-semibold uppercase tracking-wide text-slate-500">
-            <span>Agent / action</span><span>Resource</span><span>Risk</span><span>Status</span><span>Expiry</span>
-          </div>
-          {approvals.map((approval) => (
-            <Link key={approval.id} href={`/approvals/${approval.id}`} className="grid grid-cols-[1.3fr_1fr_0.9fr_0.9fr_0.9fr] gap-4 border-b border-slate-100 px-5 py-4 text-sm last:border-0 hover:bg-slate-50">
-              <span><strong className="block font-medium text-ink">{approval.agent_name}</strong><small className="text-xs text-slate-400">{approval.action_name}</small></span>
-              <span className="text-slate-500">{approval.resource_key}</span>
-              <span><StatusPill value={`${approval.risk_classification ?? "UNKNOWN"} · ${approval.risk_score ?? "--"}`} /></span>
-              <span><StatusPill value={approval.status} /></span>
-              <span className="text-xs text-slate-400">{new Date(approval.expires_at).toLocaleString()}</span>
-            </Link>
-          ))}
+      {!loading && !error && approvals.length === 0 && (
+        <div className="rounded-card border border-dashed border-hairlineStrong bg-surface px-6 py-12 text-center">
+          <p className="text-sm font-medium text-ink">No approvals in the queue</p>
+          <p className="mx-auto mt-1 max-w-sm text-[13px] text-inkSubtle">When a high-risk action requires a human, it will appear here for review.</p>
+          <Link href="/action-requests" className="mt-4 inline-block text-[13px] font-semibold text-signal hover:text-signalHover">
+            Browse governed actions →
+          </Link>
         </div>
+      )}
+      {approvals.length > 0 && (
+        <DataTable<Approval>
+          columns={columns}
+          rows={approvals}
+          rowKey={(a) => a.id}
+          onRowClick={(a) => router.push(`/approvals/${a.id}`)}
+          caption="Approval requests"
+          minWidth={860}
+        />
       )}
     </RegistryShell>
   );

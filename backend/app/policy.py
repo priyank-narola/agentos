@@ -92,11 +92,24 @@ class DeterministicPolicyEvaluator:
         for delegation in matching_delegations:
             if delegation.status == DelegationStatus.REVOKED:
                 continue
-            if delegation.status == DelegationStatus.EXPIRED or (delegation.expires_at is not None and delegation.expires_at <= request.evaluated_at):
+            if delegation.status == DelegationStatus.EXPIRED:
                 continue
+            if delegation.expires_at is not None:
+                expires = delegation.expires_at.replace(tzinfo=timezone.utc) if delegation.expires_at.tzinfo is None else delegation.expires_at
+                evaluated = request.evaluated_at.replace(tzinfo=timezone.utc) if request.evaluated_at.tzinfo is None else request.evaluated_at
+                if expires <= evaluated:
+                    continue
             valid_delegations.append(delegation)
         if not valid_delegations:
-            code = ReasonCode.DELEGATION_EXPIRED if any(d.expires_at and d.expires_at <= request.evaluated_at or d.status == DelegationStatus.EXPIRED for d in matching_delegations) else ReasonCode.DELEGATION_INACTIVE
+            def _is_expired(d):
+                if d.status == DelegationStatus.EXPIRED:
+                    return True
+                if d.expires_at is None:
+                    return False
+                expires = d.expires_at.replace(tzinfo=timezone.utc) if d.expires_at.tzinfo is None else d.expires_at
+                evaluated = request.evaluated_at.replace(tzinfo=timezone.utc) if request.evaluated_at.tzinfo is None else request.evaluated_at
+                return expires <= evaluated
+            code = ReasonCode.DELEGATION_EXPIRED if any(_is_expired(d) for d in matching_delegations) else ReasonCode.DELEGATION_INACTIVE
             add(code, "DENY", "No active, non-expired delegation is available")
             return self._result("DENY", code, "Delegated authority is not currently valid", trace, records)
         operation = records.action.name.split("_", 1)[0]

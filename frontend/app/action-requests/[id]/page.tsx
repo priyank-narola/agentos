@@ -1,25 +1,39 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 
-import { ActionRequest, Approval, ObservabilityActionDetail, TimelineEvent, api } from "@/lib/api";
-import { RegistryShell, StateMessage, StatusPill } from "@/components/registry-shell";
+import { ActionRequest, Approval, ObservabilityActionDetail, Principal, TimelineEvent, api } from "@/lib/api";
+import { RegistryShell, StateMessage } from "@/components/registry-shell";
+import { Breadcrumbs } from "@/components/ui/Breadcrumbs";
+import { Status } from "@/components/ui/Status";
+import { Disclosure } from "@/components/ui/Disclosure";
+import { GovernanceStepper } from "@/components/ui/GovernanceStepper";
+import { KeyValueList } from "@/components/ui/KeyValue";
+import { formatDateTime, formatMoney, shortId } from "@/lib/format";
 
-export default function ActionRequestDetailPage({ params }: { params: Promise<{ id: string }> }) {
+type StepState = "done" | "active" | "pending" | "bad";
+
+export default function ActionCaseFile({ params }: { params: Promise<{ id: string }> }) {
   const [request, setRequest] = useState<ActionRequest | null>(null);
   const [approval, setApproval] = useState<Approval | null>(null);
   const [obs, setObs] = useState<ObservabilityActionDetail | null>(null);
   const [audit, setAudit] = useState<TimelineEvent[]>([]);
+  const [principals, setPrincipals] = useState<Principal[]>([]);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     params.then(({ id }) => {
-      api.actionRequest(id)
+      api
+        .actionRequest(id)
         .then(async (requestData) => {
           setRequest(requestData);
-          const approvals = await api.approvals().catch(() => [] as Approval[]);
+          const [approvals, principalsData] = await Promise.all([
+            api.approvals().catch(() => [] as Approval[]),
+            api.principals().catch(() => [] as Principal[]),
+          ]);
           setApproval(approvals.find((item) => item.action_request_id === id) ?? null);
+          setPrincipals(principalsData);
           if (requestData.tenant_id) {
             const detail = await api.observabilityActionRequest(id, requestData.tenant_id).catch(() => null);
             setObs(detail);
@@ -31,62 +45,248 @@ export default function ActionRequestDetailPage({ params }: { params: Promise<{ 
     });
   }, [params]);
 
+  const principalName = useMemo(() => {
+    const map = new Map(principals.map((p) => [p.id, p.name]));
+    return (id?: string | null, name?: string | null) => name ?? (id ? (map.get(id) ?? shortId(id)) : "Unavailable");
+  }, [principals]);
+
   if (!request) {
-    return <RegistryShell title="Action request detail" eyebrow="Decision evidence">{error ? <StateMessage tone="error">Unable to load action request. {error}</StateMessage> : <StateMessage>Loading request evidence...</StateMessage>}</RegistryShell>;
+    return (
+      <RegistryShell>
+        <StateMessage>{error ? `Unable to load action case file. ${error}` : "Loading case file…"}</StateMessage>
+      </RegistryShell>
+    );
   }
 
-  const finalState = approval?.status === "APPROVED" ? "AUTHORIZED FOR EXECUTION" : approval?.status === "REJECTED" || approval?.status === "EXPIRED" || approval?.status === "CANCELLED" ? "BLOCKED" : request.decision === "REQUIRE_APPROVAL" ? "PENDING APPROVAL" : request.decision === "ALLOW" ? "AUTHORIZED" : "BLOCKED";
-  const executedInSandbox = request.reason?.includes("executed via SandboxPaymentProvider") ?? false;
-  const executionFailed = request.reason?.includes("execution failed") ?? false;
-  const executionLine = executedInSandbox ? "EXECUTED IN SANDBOX" : executionFailed ? "SANDBOX EXECUTION FAILED" : "NOT EXECUTED";
-  const timeline = [
-    ["REQUESTED", new Date(request.requested_at).toLocaleString(), true],
-    ["RISK EVALUATED", request.risk_classification ? `${request.risk_classification} · ${request.risk_score}/100 · ${request.risk_engine_version}` : "Risk evidence unavailable", Boolean(request.risk_classification)],
-    ["POLICY EVALUATED", request.reason_code ? `${request.reason_code} · ${request.reason}` : "Policy evidence unavailable", Boolean(request.reason_code)],
-    [request.decision === "REQUIRE_APPROVAL" ? "APPROVAL REQUIRED" : request.decision === "ALLOW" ? "AUTHORIZED" : "BLOCKED", request.decision ?? request.status, Boolean(request.decision)],
-    ["HUMAN DECISION", approval ? `${approval.status}${approval.decided_at ? ` · ${new Date(approval.decided_at).toLocaleString()}` : ""}` : "Not applicable or unavailable", Boolean(approval)],
-    ["FINAL AUTHORIZATION", finalState, true],
-    ["SANDBOX EXECUTION", executionLine, executedInSandbox || executionFailed],
-  ];
+  const decision = request.decision ?? request.status ?? "UNKNOWN";
+  const executionStatus = request.execution_status ?? "NOT_EXECUTED";
+  const decidedBy = obs?.approval?.decided_by;
+  const executionReason =
+    executionStatus === "EXECUTED"
+      ? `Executed in the sandbox provider${obs?.execution.provider_transaction_id ? ` · ${obs.execution.provider_transaction_id}` : ""}.`
+      : executionStatus === "FAILED"
+        ? "Execution was attempted but failed in the sandbox provider."
+        : executionStatus === "PENDING"
+          ? "Execution is pending a definitive outcome."
+          : "No execution was recorded for this action.";
+
+  const amount = request.parameters?.amount;
+  const amountLine = typeof amount === "number" || typeof amount === "string" ? `${formatMoney(amount, String(request.parameters?.currency ?? "USD"))}` : null;
+
+  const overrides = {
+    approve: (approval ? (approval.status === "PENDING" ? ("active" as StepState) : approval.status === "APPROVED" ? ("done" as StepState) : ("bad" as StepState)) : ("pending" as StepState)),
+    revalidate: (approval?.status === "APPROVED" ? ("done" as StepState) : ("pending" as StepState)),
+    execute:
+      executionStatus === "EXECUTED"
+        ? ("done" as StepState)
+        : executionStatus === "FAILED"
+          ? ("bad" as StepState)
+          : executionStatus === "PENDING"
+            ? ("active" as StepState)
+            : ("pending" as StepState),
+    audit: audit.length > 0 ? ("done" as StepState) : ("pending" as StepState),
+  };
+
+  const decisionMeta: Record<string, { label: string; note: string }> = {
+    ALLOW: { label: "Allow", note: "The policy engine authorized this action." },
+    REQUIRE_APPROVAL: { label: "Approval required", note: "The policy engine requires a distinct human to approve this action." },
+    DENY: { label: "Deny", note: "The policy engine denied this action." },
+  };
+  const decisionText = decisionMeta[decision] ?? { label: decision, note: "This request did not reach a policy decision." };
 
   return (
-    <RegistryShell title="Action request detail" eyebrow="Decision evidence">
-      <div className="mb-4 flex flex-wrap gap-2 text-sm">
-        <span className="text-xs self-center text-slate-400">Case file:</span>
-        <Link href={`/agents/${request.agent_id}`} className="rounded border border-slate-200 bg-white px-3 py-1 text-xs font-medium text-signal hover:border-signal">Agent: {request.agent_name}</Link>
-        <Link href={`/resources/${request.resource_id}`} className="rounded border border-slate-200 bg-white px-3 py-1 text-xs font-medium text-signal hover:border-signal">Resource: {request.resource_key}</Link>
-        {approval && <Link href={`/approvals/${approval.id}`} className="rounded border border-slate-200 bg-white px-3 py-1 text-xs font-medium text-signal hover:border-signal">Approval: {approval.status}</Link>}
-      </div>
-      <div className="flex flex-wrap items-start justify-between gap-4 border border-slate-200 bg-white p-6">
-        <div><p className="text-xs uppercase tracking-wide text-slate-400">Final state</p><p className="mt-2 text-3xl font-semibold text-ink">{finalState}</p><p className="mt-3 text-sm text-slate-600">{request.reason ?? "No decision reason recorded."}</p></div>
-        <div className="flex flex-wrap gap-2">{request.reason_code && <StatusPill value={request.reason_code} />}{request.risk_classification && <StatusPill value={`${request.risk_classification} · ${request.risk_score}/100`} />}</div>
+    <RegistryShell>
+      <div className="mb-6">
+        <Breadcrumbs
+          items={[
+            { label: "Control center", href: "/" },
+            { label: "Actions", href: "/action-requests" },
+            { label: request.action_name },
+          ]}
+        />
       </div>
 
-      <div className="mt-6 grid gap-6 xl:grid-cols-[0.72fr_1.28fr]">
-        <section className="border border-slate-200 bg-ink p-6 text-white"><p className="text-xs font-semibold uppercase tracking-[0.16em] text-emerald-300">Request lifecycle</p><div className="mt-6 space-y-1">{timeline.map(([label, detail, available], index) => <div key={label as string} className="relative flex gap-4 pb-6"><div className={`relative z-10 mt-0.5 h-3 w-3 shrink-0 rounded-full border ${available ? "border-emerald-300 bg-emerald-300" : "border-slate-600 bg-ink"}`} />{index < timeline.length - 1 && <span className="absolute left-[5px] top-3 h-full w-px bg-white/15" />}<div><p className={`text-xs font-semibold tracking-wide ${available ? "text-white" : "text-slate-500"}`}>{label}</p><p className="mt-1 text-xs leading-5 text-slate-400">{detail}</p></div></div>)}</div></section>
-        <div><div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">{[["Agent", request.agent_name], ["Principal", request.principal_id], ["Tool", request.tool_name], ["Action", request.action_name], ["Resource", `${request.resource_type} / ${request.resource_key}`], ["Request status", request.status], ["Requested", new Date(request.requested_at).toLocaleString()], ["Decided", request.decided_at ? new Date(request.decided_at).toLocaleString() : "Unavailable"]].map(([label, value]) => <div key={label} className="border border-slate-200 bg-white p-4"><p className="text-[10px] font-semibold uppercase tracking-wide text-slate-400">{label}</p><p className="mt-2 break-all text-sm text-ink">{value}</p></div>)}</div><div className="mt-4 grid gap-4 lg:grid-cols-2"><section className="border border-slate-200 bg-white p-5"><h2 className="font-semibold text-ink">Request parameters</h2><pre className="mt-4 overflow-auto bg-slate-50 p-4 text-xs text-slate-600">{JSON.stringify(request.parameters, null, 2)}</pre></section><section className="border border-slate-200 bg-white p-5"><h2 className="font-semibold text-ink">Risk factors</h2><div className="mt-4 space-y-3">{request.risk_factors.length === 0 ? <p className="text-sm text-slate-500">Risk factors unavailable.</p> : request.risk_factors.map((factor) => <div key={factor.code} className="flex justify-between gap-4 border-b border-slate-100 pb-3 text-sm"><div><p className="font-medium text-ink">{factor.code}</p><p className="mt-1 text-xs text-slate-500">{factor.explanation}</p></div><span className="font-mono text-signal">+{factor.contribution}</span></div>)}</div></section></div></div>
-      </div>
-      {obs && (
-        <div className="mt-6 grid gap-4 md:grid-cols-3">
-          <div className="border border-slate-200 bg-white p-5"><p className="text-[10px] font-semibold uppercase tracking-wide text-slate-400">Execution record</p><p className="mt-2 text-lg font-semibold text-ink">{obs.execution.status ?? "NOT_EXECUTED"}</p><p className="mt-1 text-xs text-slate-500">{obs.execution.provider_name ? `${obs.execution.provider_name} · ${obs.execution.provider_transaction_id ?? ""}` : "No execution recorded"}</p></div>
-          <div className="border border-slate-200 bg-white p-5"><p className="text-[10px] font-semibold uppercase tracking-wide text-slate-400">Approval</p><p className="mt-2 text-lg font-semibold text-ink">{obs.approval.status ?? "Not required"}</p><p className="mt-1 text-xs text-slate-500">Requested by {obs.approval.requested_by ?? "—"} {obs.approval.decided_by ? `· decided by ${obs.approval.decided_by}` : ""}</p></div>
-          <div className="border border-slate-200 bg-white p-5"><p className="text-[10px] font-semibold uppercase tracking-wide text-slate-400">Policy decision</p><p className="mt-2 text-lg font-semibold text-ink">{obs.policy.decision ?? "—"}</p><p className="mt-1 text-xs text-slate-500">{obs.policy.reason_code ? `${obs.policy.reason_code} — ${obs.policy.reason ?? ""}` : ""}</p></div>
+      {/* Decision / outcome header */}
+      <section className="rounded-card border border-hairline bg-surface p-6 lg:p-8">
+        <div className="flex flex-wrap items-start justify-between gap-6">
+          <div className="min-w-0 max-w-2xl">
+            <p className="eyebrow text-inkFaint">Decision case file</p>
+            <h1 className="mt-1.5 text-2xl font-semibold tracking-tight text-ink lg:text-3xl">{request.action_name}</h1>
+            <div className="mt-4 flex flex-wrap items-center gap-2.5">
+              <span className="text-sm font-medium text-inkSubtle">Decision</span>
+              <Status value={decision} />
+              <span className="mx-1 text-inkFaint">·</span>
+              <span className="text-sm font-medium text-inkSubtle">Execution</span>
+              <Status value={executionStatus} />
+            </div>
+            <p className="mt-3 text-[15px] leading-7 text-inkSubtle">{request.reason ?? decisionText.note}</p>
+            {request.reason_code && <p className="mt-2 inline-block rounded-control border border-hairline bg-surfaceMuted px-2 py-0.5 font-mono text-[11px] text-inkSubtle">{request.reason_code}</p>}
+          </div>
+          <dl className="grid shrink-0 grid-cols-2 gap-x-8 gap-y-2 text-[13px] sm:grid-cols-2">
+            <div className="col-span-2">
+              <dt className="text-[11px] uppercase tracking-wide text-inkFaint">Requested</dt>
+              <dd className="mt-0.5 text-inkMuted">{formatDateTime(request.requested_at)}</dd>
+            </div>
+            <div>
+              <dt className="text-[11px] uppercase tracking-wide text-inkFaint">Decided</dt>
+              <dd className="mt-0.5 text-inkMuted">{formatDateTime(request.decided_at)}</dd>
+            </div>
+            <div>
+              <dt className="text-[11px] uppercase tracking-wide text-inkFaint">Reference</dt>
+              <dd className="mt-0.5 font-mono text-xs text-inkSubtle">{shortId(request.id, 10)}</dd>
+            </div>
+          </dl>
         </div>
-      )}
-      {audit.length > 0 && (
-        <section className="mt-6 border border-slate-200 bg-white p-6">
-          <h2 className="font-semibold text-ink">Audit trail ({audit.length} events)</h2>
-          <ol className="mt-4 space-y-1">
-            {audit.map((event) => (
-              <li key={event.id} className="flex items-baseline justify-between gap-4 border-b border-slate-100 py-1.5 text-sm">
-                <span className="font-medium text-ink">{event.event_type}</span>
-                <span className="text-xs text-slate-400">{event.created_at ? new Date(event.created_at).toLocaleString() : ""}</span>
-              </li>
-            ))}
-          </ol>
+      </section>
+
+      {/* WHO / WHAT / WHY / RISK */}
+      <div className="mt-6 grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+        <section className="rounded-card border border-hairline bg-surface p-5">
+          <p className="eyebrow text-inkFaint">Who is acting</p>
+          <p className="mt-3 text-[15px] font-semibold text-ink">{request.agent_name}</p>
+          <p className="mt-1 text-[13px] leading-5 text-inkSubtle">
+            Acting for <span className="font-medium text-inkMuted">{principalName(request.principal_id, request.principal_name)}</span>
+          </p>
         </section>
-      )}
-      <p className="mt-6 border border-amber-200 bg-amber-50 p-4 text-xs font-semibold text-amber-800">SANDBOX DEMONSTRATION — NO REAL MONEY MOVEMENT. Authorized executions run in the sandbox provider only.</p>
+        <section className="rounded-card border border-hairline bg-surface p-5">
+          <p className="eyebrow text-inkFaint">What</p>
+          <p className="mt-3 text-[15px] font-semibold text-ink">{amountLine ?? request.action_name}</p>
+          <p className="mt-1 text-[13px] leading-5 text-inkSubtle">
+            {request.action_name} <span className="text-inkFaint">via</span> {request.tool_name}
+          </p>
+        </section>
+        <section className="rounded-card border border-hairline bg-surface p-5">
+          <p className="eyebrow text-inkFaint">Resource</p>
+          <p className="mt-3 break-all text-[15px] font-semibold text-ink">{request.resource_type}</p>
+          <p className="mt-1 break-all font-mono text-xs text-inkSubtle">{request.resource_key}</p>
+        </section>
+        <section className="rounded-card border border-hairline bg-surface p-5">
+          <p className="eyebrow text-inkFaint">Risk</p>
+          <div className="mt-3 flex items-center gap-2">
+            <Status value={request.risk_classification ?? "LOW"} />
+            {request.risk_score !== null && request.risk_score !== undefined && <span className="tnum text-[13px] font-medium text-inkMuted">{request.risk_score}/100</span>}
+          </div>
+        </section>
+      </div>
+
+      {/* Governance chain + evidence */}
+      <div className="mt-6 grid gap-6 xl:grid-cols-[0.9fr_1.1fr]">
+        <section className="h-fit rounded-card border border-hairline bg-surface p-6">
+          <div className="flex items-baseline justify-between gap-4">
+            <div>
+              <p className="eyebrow text-inkFaint">Governance chain</p>
+              <h2 className="mt-1 text-base font-semibold tracking-tight text-ink">Where this action stands</h2>
+            </div>
+            <span className="text-xs text-inkFaint">{audit.length} events</span>
+          </div>
+          <div className="mt-5">
+            <GovernanceStepper completedThrough="decide" overrides={overrides} />
+          </div>
+          <div className="mt-4 rounded-card border border-hairline bg-surfaceMuted px-4 py-3 text-[13px] leading-6 text-inkSubtle">
+            <span className="font-medium text-ink">Execution outcome:</span> {executionReason}
+          </div>
+        </section>
+
+        <div className="space-y-4">
+          {/* Approval / execution */}
+          <section className="rounded-card border border-hairline bg-surface p-6">
+            <p className="eyebrow text-inkFaint">Approval & execution</p>
+            <div className="mt-4 grid gap-4 sm:grid-cols-2">
+              <div>
+                <p className="text-xs text-inkFaint">Approval</p>
+                <p className="mt-1 text-[15px] font-semibold text-ink">{approval ? <Status value={approval.status} /> : "Not required"}</p>
+                {approval?.status === "PENDING" && approval.id && (
+                  <Link href={`/approvals/${approval.id}`} className="mt-2 inline-block text-[13px] font-semibold text-signal hover:text-signalHover">
+                    Review approval →
+                  </Link>
+                )}
+                {approval && approval.decided_at && (
+                  <p className="mt-2 text-xs text-inkSubtle">
+                    Decided by {principalName(decidedBy)} · {formatDateTime(approval.decided_at)}
+                  </p>
+                )}
+              </div>
+              <div>
+                <p className="text-xs text-inkFaint">Execution</p>
+                <p className="mt-1 text-[15px] font-semibold text-ink">{executionStatus}</p>
+                {obs?.execution?.provider_transaction_id && (
+                  <p className="mt-2 font-mono text-[11px] text-inkSubtle">{obs.execution.provider_transaction_id}</p>
+                )}
+              </div>
+            </div>
+          </section>
+
+          {/* Evidence disclosures */}
+          <Disclosure title="Risk evidence & factors">
+            {request.risk_factors.length === 0 ? (
+              <p className="text-inkSubtle">No risk factors were recorded.</p>
+            ) : (
+              <ul className="divide-y divide-hairline">
+                {request.risk_factors.map((factor) => (
+                  <li key={factor.code} className="flex items-baseline justify-between gap-4 py-2.5">
+                    <div>
+                      <p className="font-medium text-ink">{factor.code}</p>
+                      <p className="mt-0.5 text-[13px] text-inkSubtle">{factor.explanation}</p>
+                    </div>
+                    <span className="tnum shrink-0 text-sm font-semibold text-signal">+{factor.contribution}</span>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </Disclosure>
+
+          <Disclosure title="Request payload & parameters">
+            <div className="overflow-x-auto rounded-card border border-hairline bg-surfaceSunken p-3">
+              <pre className="text-xs leading-5 text-inkMuted">{JSON.stringify(request.parameters, null, 2)}</pre>
+            </div>
+          </Disclosure>
+
+          <Disclosure title="Policy decision">
+            <KeyValueList
+              items={[
+                { label: "Decision", value: <Status value={decision} /> },
+                { label: "Reason code", value: request.reason_code ?? "—", mono: true },
+                { label: "Reason", value: request.reason ?? decisionText.note },
+                { label: "Matched on", value: `${request.decision ?? request.status}`, muted: true },
+              ]}
+            />
+          </Disclosure>
+
+          <Disclosure title={`Audit & proof (${audit.length} events)`}>
+            {audit.length === 0 ? (
+              <p className="text-inkSubtle">No audit events are available for this request.</p>
+            ) : (
+              <ol className="space-y-0.5">
+                {audit.map((event) => (
+                  <li key={event.id} className="flex flex-wrap items-baseline justify-between gap-3 border-b border-hairline py-2 text-sm last:border-0">
+                    <span className="font-medium text-ink">{event.event_type}</span>
+                    <span className="text-xs text-inkFaint">{formatDateTime(event.created_at)}</span>
+                  </li>
+                ))}
+              </ol>
+            )}
+          </Disclosure>
+
+          <div className="flex flex-wrap gap-2">
+            <Link href={`/agents/${request.agent_id}`} className="rounded-control border border-hairline bg-surface px-3 py-1.5 text-[13px] font-medium text-inkMuted hover:bg-surfaceMuted">
+              Open agent file
+            </Link>
+            <Link href={`/resources/${request.resource_id}`} className="rounded-control border border-hairline bg-surface px-3 py-1.5 text-[13px] font-medium text-inkMuted hover:bg-surfaceMuted">
+              Open resource
+            </Link>
+            {approval && (
+              <Link href={`/approvals/${approval.id}`} className="rounded-control border border-hairline bg-surface px-3 py-1.5 text-[13px] font-medium text-inkMuted hover:bg-surfaceMuted">
+                Open approval
+              </Link>
+            )}
+            {request.tenant_id && (
+              <Link href={`/observability?request=${request.id}`} className="ml-auto text-[13px] font-semibold text-signal hover:text-signalHover">
+                Open in observability →
+              </Link>
+            )}
+          </div>
+        </div>
+      </div>
     </RegistryShell>
   );
 }

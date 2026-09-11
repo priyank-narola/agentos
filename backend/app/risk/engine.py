@@ -91,7 +91,14 @@ class RiskEngine:
 
     @staticmethod
     def _delegation_valid(delegation: Delegation, evaluated_at: datetime) -> bool:
-        return delegation.status == DelegationStatus.ACTIVE and (delegation.expires_at is None or delegation.expires_at > evaluated_at)
+        if delegation.status != DelegationStatus.ACTIVE:
+            return False
+        if delegation.expires_at is None:
+            return True
+        # Normalize both to naive UTC for comparison (SQLite strips tzinfo)
+        expires = delegation.expires_at.replace(tzinfo=None) if delegation.expires_at.tzinfo else delegation.expires_at
+        evaluated = evaluated_at.replace(tzinfo=None) if evaluated_at.tzinfo else evaluated_at
+        return expires > evaluated
 
     @staticmethod
     def _add(factors: list[RiskFactor], code: str, contribution: int, explanation: str) -> None:

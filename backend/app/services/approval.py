@@ -15,7 +15,7 @@ from app.services.errors import RegistryConflictError, RegistryValidationError
 
 from app.financial import compute_payload_digest
 from app.execution import SandboxPaymentProvider, ExecutionStatus
-from app.services.execution_ledger import persist_execution_result
+from app.services.execution_ledger import persist_execution_result, fetch_execution_status
 
 
 
@@ -362,7 +362,7 @@ class ApprovalService:
         original = self._original_decision(request) if request.decisions else None
         risk_event = next((event for event in request.audit_events if event.event_type == "RISK_EVALUATED"), None)
         risk = risk_event.event_data if risk_event else {}
-        return ApprovalDetailSchema(id=approval.id, action_request_id=request.id, agent_id=request.agent_id, agent_name=request.agent.name, principal_id=request.principal_id, action_id=request.action_id, action_name=request.action.name, tool_id=request.action.tool.id, tool_name=request.action.tool.name, resource_id=request.resource_id, resource_type=request.resource.resource_type, resource_key=request.resource.resource_key, parameters=request.parameters, requested_by=approval.requested_by, status=approval.status, reason=approval.reason, risk_score=int(original.risk_score) if original and original.risk_score is not None else None, risk_classification=risk.get("classification"), risk_factors=risk.get("factors", []), policy_id=original.policy_id if original else None, policy_version=original.policy_version if original else None, decided_by=approval.decided_by, decided_at=approval.decided_at, requested_at=request.requested_at, expires_at=approval.expires_at)
+        return ApprovalDetailSchema(id=approval.id, action_request_id=request.id, agent_id=request.agent_id, agent_name=request.agent.name, principal_id=request.principal_id, principal_name=request.principal.name if request.principal else None, action_id=request.action_id, action_name=request.action.name, tool_id=request.action.tool.id, tool_name=request.action.tool.name, resource_id=request.resource_id, resource_type=request.resource.resource_type, resource_key=request.resource.resource_key, parameters=request.parameters, requested_by=approval.requested_by, status=approval.status, reason=approval.reason, risk_score=int(original.risk_score) if original and original.risk_score is not None else None, risk_classification=risk.get("classification"), risk_factors=risk.get("factors", []), policy_id=original.policy_id if original else None, policy_version=original.policy_version if original else None, execution_status=fetch_execution_status(self.db, request.id), decided_by=approval.decided_by, decided_at=approval.decided_at, requested_at=request.requested_at, expires_at=approval.expires_at)
 
     @staticmethod
     def _original_decision(request):

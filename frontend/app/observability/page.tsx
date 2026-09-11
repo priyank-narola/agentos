@@ -44,18 +44,18 @@ export default function ObservabilityPage() {
         <>
           <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-6">
             {kpis.map(([label, value, note]) => (
-              <div key={label} className="border border-slate-200 bg-white p-4">
-                <p className="text-xs font-medium text-slate-500">{label}</p>
-                <p className="mt-2 text-3xl font-semibold text-ink">{value}</p>
-                <p className="mt-2 text-[11px] text-slate-400">{note}</p>
+              <div key={label} className="rounded-card border border-hairline bg-surface p-4">
+                <p className="text-xs font-medium text-inkSubtle">{label}</p>
+                <p className="tnum mt-2 text-3xl font-semibold tracking-tight text-ink">{value}</p>
+                <p className="mt-2 text-[11px] text-inkFaint">{note}</p>
               </div>
             ))}
           </div>
 
           {audit && (
-            <div className={`mt-6 border p-6 ${audit.violation_count === 0 ? "border-emerald-200 bg-emerald-50" : "border-red-300 bg-red-50"}`}>
-              <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Audit integrity</p>
-              <p className={`mt-1 text-2xl font-bold ${audit.violation_count === 0 ? "text-emerald-800" : "text-red-800"}`}>{audit.audit_integrity_status}</p>
+            <div className={`mt-6 rounded-card border p-6 ${audit.violation_count === 0 ? "border-successBorder bg-successBg" : "border-dangerBorder bg-dangerBg"}`}>
+              <p className="eyebrow text-inkSubtle">Audit integrity</p>
+              <p className={`mt-1 text-2xl font-bold ${audit.violation_count === 0 ? "text-success" : "text-danger"}`}>{audit.audit_integrity_status}</p>
               <p className="mt-2 text-sm text-slate-600">{audit.total_requests_verified} requests verified · {audit.violation_count} violations</p>
               {audit.violations.slice(0, 10).map((v, i) => <p key={i} className="mt-1 text-xs text-red-700">{v.type}</p>)}
             </div>

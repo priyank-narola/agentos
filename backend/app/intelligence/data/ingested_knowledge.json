@@ -1,0 +1,998 @@
+{
+  "version": "knowledge-v1",
+  "total": 49,
+  "entries": [
+    {
+      "id": "OWASP-LLM01",
+      "source": "OWASP_LLM_TOP10",
+      "source_url": "https://genai.owasp.org/llmrisk/llm01-prompt-injection/",
+      "title": "Prompt Injection",
+      "category": "prompt_injection",
+      "provenance": "PUBLIC_SOURCE",
+      "original_reference": "OWASP Top 10 for LLM Applications 2025: LLM01",
+      "ingested_at": "2026-09-09T07:21:25.956377+00:00",
+      "risk_factors": [
+        "instruction_override_markers",
+        "untrusted_input",
+        "context_manipulation"
+      ],
+      "threat_types": [
+        "prompt_injection",
+        "policy_manipulation",
+        "unauthorized_access"
+      ],
+      "publication_date": "2025-01-15",
+      "description": "OWASP LLM01: Direct and indirect prompt injection where crafted input manipulates LLM behavior"
+    },
+    {
+      "id": "OWASP-LLM02",
+      "source": "OWASP_LLM_TOP10",
+      "source_url": "https://genai.owasp.org/llmrisk/llm02-sensitive-information-disclosure/",
+      "title": "Sensitive Information Disclosure",
+      "category": "sensitive_data_disclosure",
+      "provenance": "PUBLIC_SOURCE",
+      "original_reference": "OWASP Top 10 for LLM Applications 2025: LLM02",
+      "ingested_at": "2026-09-09T07:21:25.956377+00:00",
+      "risk_factors": [
+        "sensitive_data_exposure",
+        "credential_leakage"
+      ],
+      "threat_types": [
+        "data_exfiltration"
+      ],
+      "publication_date": "2025-01-15",
+      "description": "OWASP LLM02: LLM inadvertently reveals sensitive data in responses"
+    },
+    {
+      "id": "OWASP-LLM03",
+      "source": "OWASP_LLM_TOP10",
+      "source_url": "https://genai.owasp.org/llmrisk/llm03-supply-chain-vulnerability/",
+      "title": "Supply Chain Vulnerability",
+      "category": "supply_chain",
+      "provenance": "PUBLIC_SOURCE",
+      "original_reference": "OWASP Top 10 for LLM Applications 2025: LLM03",
+      "ingested_at": "2026-09-09T07:21:25.956377+00:00",
+      "risk_factors": [
+        "untrusted_plugin",
+        "dependency_risk",
+        "tool_poisoning"
+      ],
+      "threat_types": [
+        "malicious_tool",
+        "tool_abuse"
+      ],
+      "publication_date": "2025-01-15",
+      "description": "OWASP LLM03: Vulnerabilities in third-party components, plugins, or data sources"
+    },
+    {
+      "id": "OWASP-LLM04",
+      "source": "OWASP_LLM_TOP10",
+      "source_url": "https://genai.owasp.org/llmrisk/llm04-data-model-poisoning/",
+      "title": "Data and Model Poisoning",
+      "category": "supply_chain",
+      "provenance": "PUBLIC_SOURCE",
+      "original_reference": "OWASP Top 10 for LLM Applications 2025: LLM04",
+      "ingested_at": "2026-09-09T07:21:25.956377+00:00",
+      "risk_factors": [
+        "training_data_corruption",
+        "model_integrity"
+      ],
+      "threat_types": [
+        "malicious_tool",
+        "policy_manipulation"
+      ],
+      "publication_date": "2025-01-15",
+      "description": "OWASP LLM04: Corruption of training data or model weights"
+    },
+    {
+      "id": "OWASP-LLM05",
+      "source": "OWASP_LLM_TOP10",
+      "source_url": "https://genai.owasp.org/llmrisk/llm05-improper-output-handling/",
+      "title": "Improper Output Handling",
+      "category": "insecure_output",
+      "provenance": "PUBLIC_SOURCE",
+      "original_reference": "OWASP Top 10 for LLM Applications 2025: LLM05",
+      "ingested_at": "2026-09-09T07:21:25.956377+00:00",
+      "risk_factors": [
+        "unvalidated_output",
+        "downstream_injection"
+      ],
+      "threat_types": [
+        "prompt_injection",
+        "data_exfiltration",
+        "tool_abuse"
+      ],
+      "publication_date": "2025-01-15",
+      "description": "OWASP LLM05: LLM output passed to downstream systems without validation"
+    },
+    {
+      "id": "OWASP-LLM06",
+      "source": "OWASP_LLM_TOP10",
+      "source_url": "https://genai.owasp.org/llmrisk/llm06-excessive-agency/",
+      "title": "Excessive Agency",
+      "category": "excessive_agency",
+      "provenance": "PUBLIC_SOURCE",
+      "original_reference": "OWASP Top 10 for LLM Applications 2025: LLM06",
+      "ingested_at": "2026-09-09T07:21:25.956377+00:00",
+      "risk_factors": [
+        "excessive_permissions",
+        "unnecessary_privileges",
+        "autonomy_without_oversight"
+      ],
+      "threat_types": [
+        "privilege_escalation",
+        "unauthorized_access",
+        "tool_abuse",
+        "unauthorized_financial"
+      ],
+      "publication_date": "2025-01-15",
+      "description": "OWASP LLM06: LLM granted too much autonomy, permissions, or access"
+    },
+    {
+      "id": "OWASP-LLM07",
+      "source": "OWASP_LLM_TOP10",
+      "source_url": "https://genai.owasp.org/llmrisk/llm07-system-prompt-leakage/",
+      "title": "System Prompt Leakage",
+      "category": "prompt_injection",
+      "provenance": "PUBLIC_SOURCE",
+      "original_reference": "OWASP Top 10 for LLM Applications 2025: LLM07",
+      "ingested_at": "2026-09-09T07:21:25.956377+00:00",
+      "risk_factors": [
+        "system_prompt_exposure",
+        "security_control_disclosure"
+      ],
+      "threat_types": [
+        "prompt_injection",
+        "policy_manipulation"
+      ],
+      "publication_date": "2025-01-15",
+      "description": "OWASP LLM07: System prompt revealed, exposing security controls"
+    },
+    {
+      "id": "OWASP-LLM08",
+      "source": "OWASP_LLM_TOP10",
+      "source_url": "https://genai.owasp.org/llmrisk/llm08-vector-vector-db-poisoning/",
+      "title": "Vector and Embedding Weaknesses",
+      "category": "sensitive_data_disclosure",
+      "provenance": "PUBLIC_SOURCE",
+      "original_reference": "OWASP Top 10 for LLM Applications 2025: LLM08",
+      "ingested_at": "2026-09-09T07:21:25.956377+00:00",
+      "risk_factors": [
+        "vector_db_injection",
+        "embedding_poisoning"
+      ],
+      "threat_types": [
+        "data_exfiltration",
+        "prompt_injection"
+      ],
+      "publication_date": "2025-01-15",
+      "description": "OWASP LLM08: Security issues in vector databases and embeddings"
+    },
+    {
+      "id": "OWASP-LLM09",
+      "source": "OWASP_LLM_TOP10",
+      "source_url": "https://genai.owasp.org/llmrisk/llm09-misinformation/",
+      "title": "Misinformation",
+      "category": "insecure_output",
+      "provenance": "PUBLIC_SOURCE",
+      "original_reference": "OWASP Top 10 for LLM Applications 2025: LLM09",
+      "ingested_at": "2026-09-09T07:21:25.956377+00:00",
+      "risk_factors": [
+        "hallucination_risk",
+        "false_information"
+      ],
+      "threat_types": [
+        "policy_manipulation"
+      ],
+      "publication_date": "2025-01-15",
+      "description": "OWASP LLM09: LLM produces false or misleading information"
+    },
+    {
+      "id": "OWASP-LLM10",
+      "source": "OWASP_LLM_TOP10",
+      "source_url": "https://genai.owasp.org/llmrisk/llm10-unbounded-consumption/",
+      "title": "Unbounded Consumption",
+      "category": "insecure_output",
+      "provenance": "PUBLIC_SOURCE",
+      "original_reference": "OWASP Top 10 for LLM Applications 2025: LLM10",
+      "ingested_at": "2026-09-09T07:21:25.956377+00:00",
+      "risk_factors": [
+        "resource_exhaustion",
+        "cost_explosion"
+      ],
+      "threat_types": [
+        "tool_abuse"
+      ],
+      "publication_date": "2025-01-15",
+      "description": "OWASP LLM10: Resource exhaustion via excessive LLM calls"
+    },
+    {
+      "id": "AGENTIC-AG-01",
+      "source": "OWASP_AGENTIC",
+      "source_url": "https://owasp.org/www-project-agentic-security/",
+      "title": "Tool Poisoning via MCP",
+      "category": "tool_poisoning",
+      "provenance": "PUBLIC_SOURCE",
+      "original_reference": "OWASP Agentic Security Initiative: AG-01",
+      "ingested_at": "2026-09-09T07:21:25.956377+00:00",
+      "risk_factors": [
+        "malicious_tool_description",
+        "mcp_tool_poisoning",
+        "parameter_injection"
+      ],
+      "threat_types": [
+        "tool_poisoning",
+        "malicious_tool",
+        "prompt_injection"
+      ],
+      "publication_date": "2025-06-01",
+      "description": "Agentic threat: Malicious tool descriptions or parameters injected via MCP tool definitions"
+    },
+    {
+      "id": "AGENTIC-AG-02",
+      "source": "OWASP_AGENTIC",
+      "source_url": "https://owasp.org/www-project-agentic-security/",
+      "title": "Confused Deputy Problem",
+      "category": "confused_deputy",
+      "provenance": "PUBLIC_SOURCE",
+      "original_reference": "OWASP Agentic Security Initiative: AG-02",
+      "ingested_at": "2026-09-09T07:21:25.956377+00:00",
+      "risk_factors": [
+        "legitimate_credential_misuse",
+        "delegation_confusion"
+      ],
+      "threat_types": [
+        "confused_deputy",
+        "delegation_abuse",
+        "privilege_escalation"
+      ],
+      "publication_date": "2025-06-01",
+      "description": "Agentic threat: Agent with legitimate credentials misused by attacker to perform unintended actions"
+    },
+    {
+      "id": "AGENTIC-AG-03",
+      "source": "OWASP_AGENTIC",
+      "source_url": "https://owasp.org/www-project-agentic-security/",
+      "title": "Agent Impersonation",
+      "category": "agent_impersonation",
+      "provenance": "PUBLIC_SOURCE",
+      "original_reference": "OWASP Agentic Security Initiative: AG-03",
+      "ingested_at": "2026-09-09T07:21:25.956377+00:00",
+      "risk_factors": [
+        "identity_spoofing",
+        "credential_theft"
+      ],
+      "threat_types": [
+        "agent_impersonation",
+        "unauthorized_access"
+      ],
+      "publication_date": "2025-06-01",
+      "description": "Agentic threat: Attacker impersonates a legitimate agent identity"
+    },
+    {
+      "id": "AGENTIC-AG-04",
+      "source": "OWASP_AGENTIC",
+      "source_url": "https://owasp.org/www-project-agentic-security/",
+      "title": "Cross-Tenant Data Leakage",
+      "category": "cross_tenant_access",
+      "provenance": "PUBLIC_SOURCE",
+      "original_reference": "OWASP Agentic Security Initiative: AG-04",
+      "ingested_at": "2026-09-09T07:21:25.956377+00:00",
+      "risk_factors": [
+        "tenant_boundary_violation",
+        "multi_tenant_isolation_failure"
+      ],
+      "threat_types": [
+        "cross_tenant_access",
+        "data_exfiltration"
+      ],
+      "publication_date": "2025-06-01",
+      "description": "Agentic threat: Agent accesses data belonging to a different tenant"
+    },
+    {
+      "id": "AGENTIC-AG-05",
+      "source": "OWASP_AGENTIC",
+      "source_url": "https://owasp.org/www-project-agentic-security/",
+      "title": "Rug Pull (Tool Behavior Change)",
+      "category": "malicious_tool",
+      "provenance": "PUBLIC_SOURCE",
+      "original_reference": "OWASP Agentic Security Initiative: AG-05",
+      "ingested_at": "2026-09-09T07:21:25.956377+00:00",
+      "risk_factors": [
+        "post_trust_behavior_change",
+        "tool_provider_betrayal"
+      ],
+      "threat_types": [
+        "malicious_tool",
+        "tool_poisoning"
+      ],
+      "publication_date": "2025-06-01",
+      "description": "Agentic threat: MCP tool provider changes behavior after initial trust establishment"
+    },
+    {
+      "id": "NIST-AI-1",
+      "source": "NIST_AI_RMF",
+      "source_url": "https://www.nist.gov/itl/ai-risk-management-framework",
+      "title": "AI Risk Management Framework: Govern",
+      "category": "human_oversight",
+      "provenance": "PUBLIC_SOURCE",
+      "original_reference": "NIST AI RMF 1.0: NIST-AI-1",
+      "ingested_at": "2026-09-09T07:21:25.956377+00:00",
+      "risk_factors": [
+        "lack_of_governance",
+        "missing_accountability",
+        "no_human_oversight"
+      ],
+      "threat_types": [
+        "policy_manipulation",
+        "unauthorized_access"
+      ],
+      "publication_date": "2023-01-26",
+      "description": "NIST AI RMF GOVERN function: Establish accountability and governance structures for AI systems"
+    },
+    {
+      "id": "NIST-AI-2",
+      "source": "NIST_AI_RMF",
+      "source_url": "https://www.nist.gov/itl/ai-risk-management-framework",
+      "title": "AI Risk Management Framework: Map",
+      "category": "human_oversight",
+      "provenance": "PUBLIC_SOURCE",
+      "original_reference": "NIST AI RMF 1.0: NIST-AI-2",
+      "ingested_at": "2026-09-09T07:21:25.956377+00:00",
+      "risk_factors": [
+        "unidentified_risk_context",
+        "missing_impact_assessment"
+      ],
+      "threat_types": [
+        "policy_manipulation"
+      ],
+      "publication_date": "2023-01-26",
+      "description": "NIST AI RMF MAP function: Context and risk identification for AI systems"
+    },
+    {
+      "id": "NIST-AI-3",
+      "source": "NIST_AI_RMF",
+      "source_url": "https://www.nist.gov/itl/ai-risk-management-framework",
+      "title": "AI Risk Management Framework: Measure",
+      "category": "audit_gaps",
+      "provenance": "PUBLIC_SOURCE",
+      "original_reference": "NIST AI RMF 1.0: NIST-AI-3",
+      "ingested_at": "2026-09-09T07:21:25.956377+00:00",
+      "risk_factors": [
+        "no_risk_monitoring",
+        "missing_metrics"
+      ],
+      "threat_types": [
+        "audit_gaps",
+        "anomalous_behavior"
+      ],
+      "publication_date": "2023-01-26",
+      "description": "NIST AI RMF MEASURE function: Track and monitor AI risks"
+    },
+    {
+      "id": "NIST-AI-4",
+      "source": "NIST_AI_RMF",
+      "source_url": "https://www.nist.gov/itl/ai-risk-management-framework",
+      "title": "AI Risk Management Framework: Manage",
+      "category": "human_oversight",
+      "provenance": "PUBLIC_SOURCE",
+      "original_reference": "NIST AI RMF 1.0: NIST-AI-4",
+      "ingested_at": "2026-09-09T07:21:25.956377+00:00",
+      "risk_factors": [
+        "no_risk_mitigation",
+        "missing_oversight_controls"
+      ],
+      "threat_types": [
+        "unauthorized_access",
+        "privilege_escalation"
+      ],
+      "publication_date": "2023-01-26",
+      "description": "NIST AI RMF MANAGE function: Prioritize and mitigate AI risks including human oversight"
+    },
+    {
+      "id": "CSF-AC",
+      "source": "NIST_CSF",
+      "source_url": "https://www.nist.gov/cyberframework",
+      "title": "Access Control (PR.AA)",
+      "category": "privilege_escalation",
+      "provenance": "PUBLIC_SOURCE",
+      "original_reference": "NIST CSF 2.0: CSF-AC",
+      "ingested_at": "2026-09-09T07:21:25.956377+00:00",
+      "risk_factors": [
+        "inadequate_access_control",
+        "privilege_grant_without_justification"
+      ],
+      "threat_types": [
+        "privilege_escalation",
+        "unauthorized_access",
+        "agent_impersonation"
+      ],
+      "publication_date": "2024-02-26",
+      "description": "NIST CSF PR.AA: Identities and credentials managed; physical access restricted; logical access managed"
+    },
+    {
+      "id": "CSF-DS",
+      "source": "NIST_CSF",
+      "source_url": "https://www.nist.gov/cyberframework",
+      "title": "Data Security (PR.DS)",
+      "category": "data_exfiltration",
+      "provenance": "PUBLIC_SOURCE",
+      "original_reference": "NIST CSF 2.0: CSF-DS",
+      "ingested_at": "2026-09-09T07:21:25.956377+00:00",
+      "risk_factors": [
+        "insufficient_data_protection",
+        "unauthorized_data_export"
+      ],
+      "threat_types": [
+        "data_exfiltration",
+        "sensitive_data_disclosure"
+      ],
+      "publication_date": "2024-02-26",
+      "description": "NIST CSF PR.DS: Data-at-rest and data-in-transit protected; information not exfiltrated"
+    },
+    {
+      "id": "CSF-CM",
+      "source": "NIST_CSF",
+      "source_url": "https://www.nist.gov/cyberframework",
+      "title": "Security Monitoring (DE.CM)",
+      "category": "audit_gaps",
+      "provenance": "PUBLIC_SOURCE",
+      "original_reference": "NIST CSF 2.0: CSF-CM",
+      "ingested_at": "2026-09-09T07:21:25.956377+00:00",
+      "risk_factors": [
+        "no_anomaly_detection",
+        "missing_behavioral_monitoring"
+      ],
+      "threat_types": [
+        "anomalous_behavior",
+        "audit_gaps"
+      ],
+      "publication_date": "2024-02-26",
+      "description": "NIST CSF DE.CM: Systems monitored to detect anomalies and attack indicators"
+    },
+    {
+      "id": "CSF-RS",
+      "source": "NIST_CSF",
+      "source_url": "https://www.nist.gov/cyberframework",
+      "title": "Response (RS)",
+      "category": "audit_gaps",
+      "provenance": "PUBLIC_SOURCE",
+      "original_reference": "NIST CSF 2.0: CSF-RS",
+      "ingested_at": "2026-09-09T07:21:25.956377+00:00",
+      "risk_factors": [
+        "no_incident_response",
+        "missing_containment"
+      ],
+      "threat_types": [
+        "policy_manipulation"
+      ],
+      "publication_date": "2024-02-26",
+      "description": "NIST CSF RS: Incidents contained and mitigated"
+    },
+    {
+      "id": "CWE-20",
+      "source": "CWE",
+      "source_url": "https://cwe.mitre.org/data/definitions/20.html",
+      "title": "Improper Input Validation",
+      "category": "prompt_injection",
+      "provenance": "PUBLIC_SOURCE",
+      "original_reference": "MITRE CWE: CWE-20",
+      "ingested_at": "2026-09-09T07:21:25.956377+00:00",
+      "risk_factors": [
+        "unvalidated_input",
+        "injection_surface"
+      ],
+      "threat_types": [
+        "prompt_injection",
+        "tool_abuse"
+      ],
+      "publication_date": "2024-11-01",
+      "description": "CWE-20: Product does not validate or incorrectly validates input"
+    },
+    {
+      "id": "CWE-74",
+      "source": "CWE",
+      "source_url": "https://cwe.mitre.org/data/definitions/74.html",
+      "title": "Injection",
+      "category": "prompt_injection",
+      "provenance": "PUBLIC_SOURCE",
+      "original_reference": "MITRE CWE: CWE-74",
+      "ingested_at": "2026-09-09T07:21:25.956377+00:00",
+      "risk_factors": [
+        "special_element_injection",
+        "language_injection"
+      ],
+      "threat_types": [
+        "prompt_injection",
+        "data_exfiltration"
+      ],
+      "publication_date": "2024-11-01",
+      "description": "CWE-74: Product processes data in a language without neutralizing special elements"
+    },
+    {
+      "id": "CWE-79",
+      "source": "CWE",
+      "source_url": "https://cwe.mitre.org/data/definitions/79.html",
+      "title": "Cross-site Scripting (XSS)",
+      "category": "insecure_output",
+      "provenance": "PUBLIC_SOURCE",
+      "original_reference": "MITRE CWE: CWE-79",
+      "ingested_at": "2026-09-09T07:21:25.956377+00:00",
+      "risk_factors": [
+        "unescaped_output",
+        "script_injection_via_output"
+      ],
+      "threat_types": [
+        "insecure_output"
+      ],
+      "publication_date": "2024-11-01",
+      "description": "CWE-79: Software does not neutralize user-controlled output"
+    },
+    {
+      "id": "CWE-250",
+      "source": "CWE",
+      "source_url": "https://cwe.mitre.org/data/definitions/250.html",
+      "title": "Execution with Unnecessary Privileges",
+      "category": "privilege_escalation",
+      "provenance": "PUBLIC_SOURCE",
+      "original_reference": "MITRE CWE: CWE-250",
+      "ingested_at": "2026-09-09T07:21:25.956377+00:00",
+      "risk_factors": [
+        "excessive_privilege",
+        "unnecessary_elevation"
+      ],
+      "threat_types": [
+        "privilege_escalation",
+        "unauthorized_access"
+      ],
+      "publication_date": "2024-11-01",
+      "description": "CWE-250: Software performs operations at a privilege level higher than needed"
+    },
+    {
+      "id": "CWE-284",
+      "source": "CWE",
+      "source_url": "https://cwe.mitre.org/data/definitions/284.html",
+      "title": "Improper Access Control",
+      "category": "unauthorized_financial",
+      "provenance": "PUBLIC_SOURCE",
+      "original_reference": "MITRE CWE: CWE-284",
+      "ingested_at": "2026-09-09T07:21:25.956377+00:00",
+      "risk_factors": [
+        "missing_access_control",
+        "authorization_bypass"
+      ],
+      "threat_types": [
+        "unauthorized_access",
+        "unauthorized_financial",
+        "cross_tenant_access"
+      ],
+      "publication_date": "2024-11-01",
+      "description": "CWE-284: Software does not restrict or incorrectly restrict access to a resource"
+    },
+    {
+      "id": "CWE-287",
+      "source": "CWE",
+      "source_url": "https://cwe.mitre.org/data/definitions/287.html",
+      "title": "Improper Authentication",
+      "category": "agent_impersonation",
+      "provenance": "PUBLIC_SOURCE",
+      "original_reference": "MITRE CWE: CWE-287",
+      "ingested_at": "2026-09-09T07:21:25.956377+00:00",
+      "risk_factors": [
+        "authentication_bypass",
+        "identity_not_verified"
+      ],
+      "threat_types": [
+        "agent_impersonation",
+        "unauthorized_access"
+      ],
+      "publication_date": "2024-11-01",
+      "description": "CWE-287: Actor's claims not verified correctly"
+    },
+    {
+      "id": "CWE-359",
+      "source": "CWE",
+      "source_url": "https://cwe.mitre.org/data/definitions/359.html",
+      "title": "Exposure of Private Information",
+      "category": "data_exfiltration",
+      "provenance": "PUBLIC_SOURCE",
+      "original_reference": "MITRE CWE: CWE-359",
+      "ingested_at": "2026-09-09T07:21:25.956377+00:00",
+      "risk_factors": [
+        "privacy_violation",
+        "data_exposure"
+      ],
+      "threat_types": [
+        "data_exfiltration",
+        "sensitive_data_disclosure"
+      ],
+      "publication_date": "2024-11-01",
+      "description": "CWE-359: Private information exposed to unauthorized actors"
+    },
+    {
+      "id": "CWE-639",
+      "source": "CWE",
+      "source_url": "https://cwe.mitre.org/data/definitions/639.html",
+      "title": "Authorization Bypass Through User-Controlled Key",
+      "category": "cross_tenant_access",
+      "provenance": "PUBLIC_SOURCE",
+      "original_reference": "MITRE CWE: CWE-639",
+      "ingested_at": "2026-09-09T07:21:25.956377+00:00",
+      "risk_factors": [
+        "idor_vulnerability",
+        "user_controlled_authorization_key"
+      ],
+      "threat_types": [
+        "cross_tenant_access",
+        "unauthorized_access"
+      ],
+      "publication_date": "2024-11-01",
+      "description": "CWE-639: System uses user-controlled key for authorization without proper validation"
+    },
+    {
+      "id": "CWE-798",
+      "source": "CWE",
+      "source_url": "https://cwe.mitre.org/data/definitions/798.html",
+      "title": "Use of Hard-coded Credentials",
+      "category": "agent_impersonation",
+      "provenance": "PUBLIC_SOURCE",
+      "original_reference": "MITRE CWE: CWE-798",
+      "ingested_at": "2026-09-09T07:21:25.956377+00:00",
+      "risk_factors": [
+        "hardcoded_credentials",
+        "credential_exposure"
+      ],
+      "threat_types": [
+        "agent_impersonation",
+        "unauthorized_access"
+      ],
+      "publication_date": "2024-11-01",
+      "description": "CWE-798: Hard-coded credentials in software"
+    },
+    {
+      "id": "CWE-862",
+      "source": "CWE",
+      "source_url": "https://cwe.mitre.org/data/definitions/862.html",
+      "title": "Missing Authorization",
+      "category": "unauthorized_financial",
+      "provenance": "PUBLIC_SOURCE",
+      "original_reference": "MITRE CWE: CWE-862",
+      "ingested_at": "2026-09-09T07:21:25.956377+00:00",
+      "risk_factors": [
+        "missing_authorization_check"
+      ],
+      "threat_types": [
+        "unauthorized_access",
+        "unauthorized_financial"
+      ],
+      "publication_date": "2024-11-01",
+      "description": "CWE-862: Software does not perform an authorization check"
+    },
+    {
+      "id": "CWE-863",
+      "source": "CWE",
+      "source_url": "https://cwe.mitre.org/data/definitions/863.html",
+      "title": "Incorrect Authorization",
+      "category": "delegation_abuse",
+      "provenance": "PUBLIC_SOURCE",
+      "original_reference": "MITRE CWE: CWE-863",
+      "ingested_at": "2026-09-09T07:21:25.956377+00:00",
+      "risk_factors": [
+        "incorrect_authorization_logic",
+        "delegation_boundary_violation"
+      ],
+      "threat_types": [
+        "delegation_abuse",
+        "privilege_escalation"
+      ],
+      "publication_date": "2024-11-01",
+      "description": "CWE-863: Authorization check performed incorrectly"
+    },
+    {
+      "id": "CWE-841",
+      "source": "CWE",
+      "source_url": "https://cwe.mitre.org/data/definitions/841.html",
+      "title": "Improper Enforcement of Behavioral Workflow",
+      "category": "human_oversight",
+      "provenance": "PUBLIC_SOURCE",
+      "original_reference": "MITRE CWE: CWE-841",
+      "ingested_at": "2026-09-09T07:21:25.956377+00:00",
+      "risk_factors": [
+        "workflow_bypass",
+        "skipped_approval_step"
+      ],
+      "threat_types": [
+        "unauthorized_financial",
+        "policy_manipulation"
+      ],
+      "publication_date": "2024-11-01",
+      "description": "CWE-841: Software does not properly enforce expected workflow behavior"
+    },
+    {
+      "id": "CWE-915",
+      "source": "CWE",
+      "source_url": "https://cwe.mitre.org/data/definitions/915.html",
+      "title": "Improperly Controlled Modification of Dynamically-Determined Object Attributes",
+      "category": "policy_manipulation",
+      "provenance": "PUBLIC_SOURCE",
+      "original_reference": "MITRE CWE: CWE-915",
+      "ingested_at": "2026-09-09T07:21:25.956377+00:00",
+      "risk_factors": [
+        "mass_assignment",
+        "attribute_injection"
+      ],
+      "threat_types": [
+        "policy_manipulation",
+        "privilege_escalation"
+      ],
+      "publication_date": "2024-11-01",
+      "description": "CWE-915: Software allows attacker to modify object attributes"
+    },
+    {
+      "id": "MCP-1",
+      "source": "MCP_SECURITY",
+      "source_url": "https://modelcontextprotocol.io/specification/2025-06-18/basic/security_best_practices",
+      "title": "MCP Security: Tool Description Poisoning",
+      "category": "tool_poisoning",
+      "provenance": "PUBLIC_SOURCE",
+      "original_reference": "MCP Security Best Practices: MCP-1",
+      "ingested_at": "2026-09-09T07:21:25.956377+00:00",
+      "risk_factors": [
+        "tool_description_injection",
+        "mcp_description_poisoning"
+      ],
+      "threat_types": [
+        "tool_poisoning",
+        "prompt_injection",
+        "malicious_tool"
+      ],
+      "publication_date": "2025-06-18",
+      "description": "MCP security guidance: Tool descriptions can contain injection payloads that manipulate agent behavior"
+    },
+    {
+      "id": "MCP-2",
+      "source": "MCP_SECURITY",
+      "source_url": "https://modelcontextprotocol.io/specification/2025-06-18/basic/security_best_practices",
+      "title": "MCP Security: Confused Deputy",
+      "category": "confused_deputy",
+      "provenance": "PUBLIC_SOURCE",
+      "original_reference": "MCP Security Best Practices: MCP-2",
+      "ingested_at": "2026-09-09T07:21:25.956377+00:00",
+      "risk_factors": [
+        "server_confused_deputy",
+        "mcp_delegation_confusion"
+      ],
+      "threat_types": [
+        "confused_deputy",
+        "delegation_abuse"
+      ],
+      "publication_date": "2025-06-18",
+      "description": "MCP security guidance: Servers may act as confused deputies, performing actions on behalf of unintended users"
+    },
+    {
+      "id": "MCP-3",
+      "source": "MCP_SECURITY",
+      "source_url": "https://modelcontextprotocol.io/specification/2025-06-18/basic/security_best_practices",
+      "title": "MCP Security: Token Passthrough Anti-Pattern",
+      "category": "agent_impersonation",
+      "provenance": "PUBLIC_SOURCE",
+      "original_reference": "MCP Security Best Practices: MCP-3",
+      "ingested_at": "2026-09-09T07:21:25.956377+00:00",
+      "risk_factors": [
+        "token_passthrough_risk",
+        "audience_validation_missing"
+      ],
+      "threat_types": [
+        "agent_impersonation",
+        "unauthorized_access"
+      ],
+      "publication_date": "2025-06-18",
+      "description": "MCP security guidance: Token passthrough without audience validation enables impersonation"
+    },
+    {
+      "id": "MCP-4",
+      "source": "MCP_SECURITY",
+      "source_url": "https://modelcontextprotocol.io/specification/2025-06-18/basic/security_best_practices",
+      "title": "MCP Security: Rug Pull",
+      "category": "malicious_tool",
+      "provenance": "PUBLIC_SOURCE",
+      "original_reference": "MCP Security Best Practices: MCP-4",
+      "ingested_at": "2026-09-09T07:21:25.956377+00:00",
+      "risk_factors": [
+        "rug_pull_risk",
+        "post_trust_behavior_change"
+      ],
+      "threat_types": [
+        "malicious_tool",
+        "tool_poisoning"
+      ],
+      "publication_date": "2025-06-18",
+      "description": "MCP security guidance: Tool providers can change tool behavior after initial trust; users must re-verify"
+    },
+    {
+      "id": "OAUTH-1",
+      "source": "OAUTH_RFC",
+      "source_url": "https://datatracker.ietf.org/doc/html/rfc6749#section-10.4",
+      "title": "OAuth 2.0: Authorization Code Interception",
+      "category": "replay",
+      "provenance": "PUBLIC_SOURCE",
+      "original_reference": "OAuth/Zero-Trust: OAUTH-1",
+      "ingested_at": "2026-09-09T07:21:25.956377+00:00",
+      "risk_factors": [
+        "code_interception",
+        "replay_of_stolen_credentials"
+      ],
+      "threat_types": [
+        "replay",
+        "unauthorized_access"
+      ],
+      "publication_date": "2024-06-01",
+      "description": "RFC 6749 \u00a710.4: Authorization code interception allows replay of stolen codes"
+    },
+    {
+      "id": "OAUTH-2",
+      "source": "OAUTH_RFC",
+      "source_url": "https://datatracker.ietf.org/doc/html/rfc6749#section-10.3",
+      "title": "OAuth 2.0: Access Token Leakage",
+      "category": "agent_impersonation",
+      "provenance": "PUBLIC_SOURCE",
+      "original_reference": "OAuth/Zero-Trust: OAUTH-2",
+      "ingested_at": "2026-09-09T07:21:25.956377+00:00",
+      "risk_factors": [
+        "token_leakage",
+        "credential_exposure"
+      ],
+      "threat_types": [
+        "agent_impersonation",
+        "unauthorized_access",
+        "data_exfiltration"
+      ],
+      "publication_date": "2024-06-01",
+      "description": "RFC 6749 \u00a710.3: Access token leakage enables impersonation and unauthorized access"
+    },
+    {
+      "id": "OAUTH-3",
+      "source": "OAUTH_RFC",
+      "source_url": "https://datatracker.ietf.org/doc/html/rfc9449.html",
+      "title": "DPoP: Sender-Constraining Tokens",
+      "category": "replay",
+      "provenance": "PUBLIC_SOURCE",
+      "original_reference": "OAuth/Zero-Trust: OAUTH-3",
+      "ingested_at": "2026-09-09T07:21:25.956377+00:00",
+      "risk_factors": [
+        "token_replay_prevention",
+        "proof_of_possession_missing"
+      ],
+      "threat_types": [
+        "replay"
+      ],
+      "publication_date": "2024-06-01",
+      "description": "RFC 9449: Demonstrating Proof of Possession binds tokens to a client key, preventing replay"
+    },
+    {
+      "id": "ZT-1",
+      "source": "ZERO_TRUST_NIST",
+      "source_url": "https://www.nist.gov/publications/zero-trust-architecture",
+      "title": "NIST Zero Trust: Never Trust, Always Verify",
+      "category": "human_oversight",
+      "provenance": "PUBLIC_SOURCE",
+      "original_reference": "OAuth/Zero-Trust: ZT-1",
+      "ingested_at": "2026-09-09T07:21:25.956377+00:00",
+      "risk_factors": [
+        "implicit_trust",
+        "missing_continuous_verification"
+      ],
+      "threat_types": [
+        "unauthorized_access",
+        "privilege_escalation",
+        "agent_impersonation"
+      ],
+      "publication_date": "2024-06-01",
+      "description": "NIST SP 800-207: Zero trust architecture requires continuous verification for every request"
+    },
+    {
+      "id": "INC-1",
+      "source": "AI_INCIDENT",
+      "source_url": "https://arxiv.org/abs/2308.09687",
+      "title": "LLM Prompt Injection Attack on Bing Chat",
+      "category": "prompt_injection",
+      "provenance": "PUBLIC_SOURCE",
+      "original_reference": "ArXiv:2502.08579 \u2014 documented indirect prompt injection in production AI system",
+      "ingested_at": "2026-09-09T07:21:25.956377+00:00",
+      "risk_factors": [
+        "indirect_prompt_injection",
+        "web_content_injection"
+      ],
+      "threat_types": [
+        "prompt_injection",
+        "data_exfiltration"
+      ],
+      "publication_date": "2023-08-18",
+      "description": "Published research: Demonstrated prompt injection against Bing Chat via hidden instructions in web content"
+    },
+    {
+      "id": "INC-2",
+      "source": "AI_INCIDENT",
+      "source_url": "https://www.wiz.io/blog/anthropic-mcp-vulnerabilities",
+      "title": "Anthropic MCP CVE-2025-5031",
+      "category": "tool_poisoning",
+      "provenance": "PUBLIC_SOURCE",
+      "original_reference": "Wiz Research: CVE-2025-5031 \u2014 MCP remote code execution in Claude Desktop",
+      "ingested_at": "2026-09-09T07:21:25.956377+00:00",
+      "risk_factors": [
+        "mcp_rce_via_github",
+        "remote_code_execution_through_tool"
+      ],
+      "threat_types": [
+        "tool_poisoning",
+        "malicious_tool",
+        "privilege_escalation"
+      ],
+      "publication_date": "2025-07-08",
+      "description": "Documented vulnerability: Claude Desktop MCP remote code execution via malicious GitHub repos (CVE-2025-5031)"
+    },
+    {
+      "id": "INC-3",
+      "source": "AI_INCIDENT",
+      "source_url": "https://kb.cert.org/vuls/id/309361/",
+      "title": "CERT VU#309361: MCP Tool Poisoning",
+      "category": "tool_poisoning",
+      "provenance": "PUBLIC_SOURCE",
+      "original_reference": "US-CERT VU#309361 \u2014 MCP tool description vulnerability advisory",
+      "ingested_at": "2026-09-09T07:21:25.956377+00:00",
+      "risk_factors": [
+        "cross_server_tool_poisoning",
+        "mcp_description_manipulation"
+      ],
+      "threat_types": [
+        "tool_poisoning",
+        "data_exfiltration",
+        "malicious_tool"
+      ],
+      "publication_date": "2025-07-17",
+      "description": "CERT advisory: MCP tool descriptions vulnerable to cross-server tool poisoning enabling data theft"
+    },
+    {
+      "id": "INC-4",
+      "source": "AI_INCIDENT",
+      "source_url": "https://arxiv.org/abs/2505.17465",
+      "title": "Multi-Agent System Attacks",
+      "category": "multi_agent_risk",
+      "provenance": "PUBLIC_SOURCE",
+      "original_reference": "ArXiv:2505.17465 \u2014 Multi-agent system security analysis",
+      "ingested_at": "2026-09-09T07:21:25.956377+00:00",
+      "risk_factors": [
+        "multi_agent_cascading_compromise",
+        "agent_to_agent_attack"
+      ],
+      "threat_types": [
+        "prompt_injection",
+        "privilege_escalation",
+        "data_exfiltration"
+      ],
+      "publication_date": "2025-05-23",
+      "description": "Published research: Systematic study of attacks on multi-agent systems including cascading compromise"
+    },
+    {
+      "id": "INC-5",
+      "source": "AI_INCIDENT",
+      "source_url": "https://www.hivesystems.com/blog/ai-agent-supply-chain-attacks",
+      "title": "AI Agent Supply Chain Attacks",
+      "category": "supply_chain",
+      "provenance": "PUBLIC_SOURCE",
+      "original_reference": "Hive Systems: AI agent supply chain attack analysis",
+      "ingested_at": "2026-09-09T07:21:25.956377+00:00",
+      "risk_factors": [
+        "agent_ecosystem_supply_chain_risk",
+        "third_party_tool_risk"
+      ],
+      "threat_types": [
+        "supply_chain",
+        "malicious_tool",
+        "tool_poisoning"
+      ],
+      "publication_date": "2025-03-15",
+      "description": "Industry analysis: Emerging supply chain attack vectors targeting AI agent ecosystems"
+    }
+  ]
+}

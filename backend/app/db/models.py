@@ -337,7 +337,7 @@ class AuditEvent(Base):
     tenant_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("tenants.id", ondelete="RESTRICT"), nullable=False, default=DEFAULT_TENANT_ID)
     event_type: Mapped[str] = mapped_column(String(100), nullable=False)
     actor_type: Mapped[ActorType] = mapped_column(enum_type(ActorType), nullable=False)
-    actor_id: Mapped[uuid.UUID] = mapped_column(Uuid(as_uuid=True), nullable=False)
+    actor_id: Mapped[uuid.UUID | None] = mapped_column(Uuid(as_uuid=True), ForeignKey("principals.id", ondelete="SET NULL"))
     agent_id: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("agents.id", ondelete="RESTRICT"))
     action_request_id: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("action_requests.id", ondelete="RESTRICT"))
     decision_id: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("decisions.id", ondelete="RESTRICT"))

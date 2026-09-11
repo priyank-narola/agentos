@@ -25,7 +25,7 @@ app.add_middleware(
     allow_origins=_allowed_origins,
     allow_credentials=False,
     allow_methods=["GET", "POST", "PATCH"],
-    allow_headers=["*"],
+    allow_headers=["Authorization", "Content-Type", "X-Tenant-ID", "X-Request-ID", "X-Idempotency-Key"],
 )
 
 # Control-plane routers require REST bearer authentication when it is enforced

@@ -335,8 +335,59 @@ class TestEvaluation:
 
 class TestProviderAbstraction:
     def test_registry_empty_by_default(self):
+        """A freshly constructed registry requires no LLM.
+
+        This asserts the *design* property — intelligence never depends on a
+        model provider. It deliberately uses a new registry rather than the
+        process-global one: importing the API layer registers a provider when
+        AGENTOS_MODEL_PROVIDER is configured (as it is in a real deployment or
+        any developer .env), so asserting on the global would make this test
+        pass or fail based on import order and local environment.
+        """
+        assert len(ModelProviderRegistry().available()) == 0
+
+    def test_global_registry_requires_no_provider_to_function(self):
+        """The global registry is usable whether or not a provider registered."""
         reg = get_registry()
-        assert len(reg.available()) == 0  # no LLM required
+        for status in reg.verify_all():
+            assert "configured" in status and "status" in status
+
+    def test_configured_provider_is_never_reported_usable_without_a_probe(self):
+        """Configuration must never be presented as a working model.
+
+        This is the integrity property behind the UI's model status: a provider
+        whose probe fails (401/outage/WAF) must not be counted as ACTIVE, and a
+        provider that implements no probe must decline to claim reachability.
+        Uses local stubs — no network.
+        """
+        class Unreachable(IntelligenceModelProvider):
+            name = "unreachable_test"
+            def is_available(self): return True
+            def analyze(self, ctx): return {}
+            def verify(self, force=False):
+                return {"name": self.name, "configured": True, "reachable": False,
+                        "status": "UNAUTHORIZED", "error": "HTTP 401"}
+
+        class NoProbe(IntelligenceModelProvider):
+            name = "noprobe_test"
+            def is_available(self): return True
+            def analyze(self, ctx): return {}
+
+        reg = ModelProviderRegistry()
+        reg.register(Unreachable())
+        reg.register(NoProbe())
+
+        statuses = reg.verify_all()
+        # Configured, yes — but not a single one may be counted as usable.
+        assert len(reg.available()) == 2
+        assert [s for s in statuses if s["status"] == "ACTIVE"] == []
+        for s in statuses:
+            assert s["configured"] is True
+            assert s.get("reachable") is not True
+
+        # The no-probe default must report unknown, never a positive claim.
+        assert NoProbe().verify()["reachable"] is None
+        assert NoProbe().verify()["status"] == "CONFIGURED_UNVERIFIED"
 
     def test_custom_provider_can_register(self):
         class FakeProvider(IntelligenceModelProvider):

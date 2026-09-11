@@ -1,6 +1,12 @@
 import os
 from dataclasses import dataclass
 
+from dotenv import load_dotenv
+
+load_dotenv()
+
+_is_production = os.getenv("APP_ENV", "development") == "production"
+
 
 def normalize_database_url(url: str) -> str:
     """Select the installed Psycopg 3 SQLAlchemy dialect for PostgreSQL URLs."""
@@ -33,8 +39,11 @@ class Settings:
     rate_limit_window_seconds: int = int(os.getenv("RATE_LIMIT_WINDOW_SECONDS", "60"))
 
     # Webhook verification (sandbox provider source). Replace in any real deployment.
-    webhook_secret: str = os.getenv("WEBHOOK_SECRET", "sandbox-webhook-secret-change-me")
+    webhook_secret: str = os.getenv("WEBHOOK_SECRET", "" if _is_production else "sandbox-webhook-secret-change-me")
     webhook_max_skew_seconds: int = int(os.getenv("WEBHOOK_MAX_SKEW_SECONDS", "300"))
+
+    # Dev token endpoint: disabled by default; set DEV_TOKEN_ENABLED=true to opt in.
+    dev_token_enabled: bool = os.getenv("DEV_TOKEN_ENABLED", "false").lower() in ("true", "1", "yes")
 
 
 settings = Settings()

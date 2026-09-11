@@ -223,3 +223,71 @@ def test_not_executed_outcome_creates_no_ledger_row(db_session):
     res = gateway.submit(payload)
     assert res.gateway_status == "AUTHORIZED"
     assert len(_ledger_rows(db_session, res.action_request_id)) == 0
+
+
+def test_action_request_detail_exposes_authoritative_execution_and_principal(db_session):
+    """Contract: action-request detail carries authoritative execution_status and
+    the initiating principal's display name (no client-side prose inference)."""
+    graph = _provision(db_session, "wire_transfer", RiskClassification.LOW)
+    gateway = GatewayService(db_session)
+    payload = GatewayRequestCreate(
+        principal_id=graph["requester"].id,
+        agent_id=graph["agent"].id,
+        action_id=graph["action"].id,
+        resource_id=graph["resource"].id,
+        parameters=_wire_params(),
+        idempotency_key=f"idem-contract-exec-{uuid.uuid4()}",
+    )
+    res = gateway.submit(payload)
+    assert res.gateway_status == "AUTHORIZED"
+
+    detail = gateway.get_request(res.action_request_id)
+    assert detail is not None
+    # Decision and execution status stay separate concepts.
+    assert detail.decision == "ALLOW"
+    assert detail.execution_status == "EXECUTED"
+    assert detail.principal_name == "Alice"
+
+    listed = [r for r in gateway.list_requests() if r.id == res.action_request_id]
+    assert listed and listed[0].execution_status == "EXECUTED"
+    assert listed[0].principal_name == "Alice"
+
+
+def test_approval_detail_exposes_execution_and_principal(db_session):
+    """Contract: approval detail carries authoritative execution_status and the
+    acting-for principal's display name after an approved execution."""
+    graph = _provision(db_session, "wire_transfer", RiskClassification.HIGH)
+    gateway = GatewayService(db_session)
+    payload = GatewayRequestCreate(
+        principal_id=graph["requester"].id,
+        agent_id=graph["agent"].id,
+        action_id=graph["action"].id,
+        resource_id=graph["resource"].id,
+        parameters=_wire_params(),
+        idempotency_key=f"idem-contract-approve-{uuid.uuid4()}",
+    )
+    res = gateway.submit(payload)
+    assert res.gateway_status == "PENDING_APPROVAL"
+
+    approvals = ApprovalService(db_session)
+    approval_rec = db_session.scalar(select(ApprovalRequest).where(ApprovalRequest.action_request_id == res.action_request_id))
+    detail = approvals.approve(approval_rec.id, ApprovalActionRequest(approver_principal_id=graph["approver"].id))
+    assert detail.status.value == "APPROVED"
+    assert detail.execution_status == "EXECUTED"
+    assert detail.principal_name == "Alice"
+
+    # Reject path must never claim execution.
+    graph2 = _provision(db_session, "bulk_payout", RiskClassification.HIGH)
+    payload2 = GatewayRequestCreate(
+        principal_id=graph2["requester"].id,
+        agent_id=graph2["agent"].id,
+        action_id=graph2["action"].id,
+        resource_id=graph2["resource"].id,
+        parameters={"amount": "25000.00", "currency": "USD", "beneficiary_id": "BEN-Z"},
+        idempotency_key=f"idem-contract-reject-{uuid.uuid4()}",
+    )
+    res2 = gateway.submit(payload2)
+    approval_rec2 = db_session.scalar(select(ApprovalRequest).where(ApprovalRequest.action_request_id == res2.action_request_id))
+    rejected = approvals.reject(approval_rec2.id, ApprovalActionRequest(approver_principal_id=graph2["approver"].id))
+    assert rejected.status.value == "REJECTED"
+    assert rejected.execution_status == "NOT_EXECUTED"

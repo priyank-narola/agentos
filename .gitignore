@@ -30,6 +30,7 @@ backend/.env
 # Build and editor files
 dist/
 build/
+backend/.next/
 *.log
 *.tsbuildinfo
 .DS_Store

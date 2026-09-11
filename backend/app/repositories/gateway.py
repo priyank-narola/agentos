@@ -11,11 +11,23 @@ class GatewayRepository:
     def __init__(self, db: Session) -> None:
         self.db = db
 
-    def get_by_idempotency_key(self, key: str, tenant_id: UUID | None = None) -> ActionRequest | None:
-        stmt = select(ActionRequest).options(joinedload(ActionRequest.decisions)).where(ActionRequest.idempotency_key == key)
+    def get_by_idempotency_key(self, key: str, tenant_id: UUID | None = None, *, lock: bool = False) -> ActionRequest | None:
+        if not lock:
+            stmt = select(ActionRequest).options(joinedload(ActionRequest.decisions)).where(ActionRequest.idempotency_key == key)
+            if tenant_id is not None:
+                stmt = stmt.where(ActionRequest.tenant_id == tenant_id)
+            return self.db.scalar(stmt)
+
+        # Locking path: SELECT ... FOR UPDATE cannot run over the nullable side of
+        # the joinedload outer join on PostgreSQL. Lock the row id alone first,
+        # then load the full graph by id within the same transaction.
+        lock_stmt = select(ActionRequest.id).where(ActionRequest.idempotency_key == key).with_for_update()
         if tenant_id is not None:
-            stmt = stmt.where(ActionRequest.tenant_id == tenant_id)
-        return self.db.scalar(stmt)
+            lock_stmt = lock_stmt.where(ActionRequest.tenant_id == tenant_id)
+        request_id = self.db.scalar(lock_stmt)
+        if request_id is None:
+            return None
+        return self.get_request(request_id, tenant_id=tenant_id)
 
     def get_request(self, request_id: UUID, tenant_id: UUID | None = None) -> ActionRequest | None:
         stmt = select(ActionRequest).options(joinedload(ActionRequest.agent), joinedload(ActionRequest.principal), joinedload(ActionRequest.action).joinedload(Action.tool), joinedload(ActionRequest.resource), joinedload(ActionRequest.decisions)).where(ActionRequest.id == request_id)

@@ -1,7 +1,6 @@
 "use client";
 
 import { useEffect, useState } from "react";
-
 import { WhoAmI, api, devTokenFor, getAccessToken, setAccessToken } from "@/lib/api";
 
 const DEMO_IDENTITIES: Array<{ label: string; external_id: string }> = [
@@ -10,12 +9,16 @@ const DEMO_IDENTITIES: Array<{ label: string; external_id: string }> = [
   { label: "Demo Admin", external_id: "demo-admin" },
 ];
 
-export function IdentityBar({ compact = false }: { compact?: boolean }) {
+/** Compact identity switcher — secondary UI, never the visual focus. */
+export function IdentityBar() {
   const [me, setMe] = useState<WhoAmI | null>(null);
 
   useEffect(() => {
     api.me().then(setMe).catch(() => setMe({ authenticated: false }));
   }, []);
+
+  const currentExternalId = me?.principal?.external_id ?? "";
+  const currentLabel = me?.principal?.name ? `Acting as ${me.principal.name}` : "Demo";
 
   const switchTo = async (externalId: string) => {
     try {
@@ -32,35 +35,45 @@ export function IdentityBar({ compact = false }: { compact?: boolean }) {
     setMe({ authenticated: false });
   };
 
-  const whoLabel = me?.principal ? `${me.principal.name}` : "Demo (unauthenticated)";
+  const known = DEMO_IDENTITIES.find((d) => d.external_id === currentExternalId);
+  const signedOut = !me?.authenticated && !getAccessToken();
 
   return (
-    <div className={`flex items-center gap-2 ${compact ? "text-xs" : ""}`}>
-      <span className={`rounded-full border px-2.5 py-1 text-xs font-medium ${me?.authenticated ? "border-emerald-300 bg-emerald-50 text-emerald-800" : "border-slate-300 bg-slate-50 text-slate-600"}`}>
-        Acting as {whoLabel}
+    <div className="flex items-center gap-1.5">
+      <span className="relative inline-flex items-center">
+        <span className="pointer-events-none absolute left-2.5 grid h-4 w-4 place-items-center rounded-full bg-ink text-[9px] font-semibold text-white">
+          {me?.principal ? me.principal.name.charAt(0).toUpperCase() : "•"}
+        </span>
+        <select
+          aria-label="Switch demo identity"
+          value={signedOut ? "demo-anon" : currentExternalId}
+          onChange={(e) => {
+            const value = e.target.value;
+            if (value === "__clear") clear();
+            else if (value) switchTo(value);
+          }}
+          className="h-8 appearance-none rounded-control border border-hairline bg-surface pl-8 pr-7 text-[13px] font-medium text-ink shadow-card transition-colors hover:border-hairlineStrong focus-visible:outline-2"
+        >
+          {signedOut ? (
+            <option value="demo-anon">Demo (unsigned)</option>
+          ) : (
+            known && <option value={known.external_id}>{currentLabel}</option>
+          )}
+          {!known && currentExternalId && <option value={currentExternalId}>{currentLabel}</option>}
+          {DEMO_IDENTITIES.filter((d) => d.external_id !== currentExternalId).map((d) => (
+            <option key={d.external_id} value={d.external_id}>
+              {d.label}
+            </option>
+          ))}
+          {me?.authenticated && <option value="__clear">Sign out</option>}
+        </select>
+        <span aria-hidden className="pointer-events-none absolute right-2 text-inkFaint">
+          <svg width="10" height="10" viewBox="0 0 10 10" fill="none">
+            <path d="M2.5 3.5 5 6 7.5 3.5" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round" />
+          </svg>
+        </span>
       </span>
-      {me?.tenant_name && <span className="rounded-full border border-slate-200 bg-white px-2.5 py-1 text-xs text-slate-500">{me.tenant_name}</span>}
-      <select
-        aria-label="Switch demo identity"
-        onChange={(e) => e.target.value && switchTo(e.target.value)}
-        defaultValue=""
-        className="border border-slate-300 bg-white px-2 py-1 text-xs"
-      >
-        <option value="" disabled>
-          Switch identity (dev)
-        </option>
-        {DEMO_IDENTITIES.map((id) => (
-          <option key={id.external_id} value={id.external_id}>
-            {id.label}
-          </option>
-        ))}
-        {getAccessToken() && <option value="__clear">Sign out</option>}
-      </select>
-      {me?.authenticated && (
-        <button type="button" onClick={clear} className="text-xs font-medium text-slate-400 hover:text-slate-600">
-          Sign out
-        </button>
-      )}
+      {me?.tenant_name && <span className="hidden text-[11px] font-medium text-inkFaint xl:block">{me.tenant_name}</span>}
     </div>
   );
 }

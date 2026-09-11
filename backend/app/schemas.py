@@ -280,6 +280,7 @@ class ActionRequestDetailSchema(BaseModel):
     agent_id: UUID
     agent_name: str
     principal_id: UUID
+    principal_name: str | None = None
     action_id: UUID
     action_name: str
     tool_id: UUID
@@ -299,6 +300,7 @@ class ActionRequestDetailSchema(BaseModel):
     risk_classification: str | None = None
     risk_factors: list[dict[str, Any]] = Field(default_factory=list)
     risk_engine_version: str | None = None
+    execution_status: str = "NOT_EXECUTED"
     decided_at: datetime | None = None
 
 
@@ -340,6 +342,7 @@ class ApprovalDetailSchema(BaseModel):
     agent_id: UUID
     agent_name: str
     principal_id: UUID
+    principal_name: str | None = None
     action_id: UUID
     action_name: str
     tool_id: UUID
@@ -356,6 +359,7 @@ class ApprovalDetailSchema(BaseModel):
     risk_factors: list[dict[str, Any]] = Field(default_factory=list)
     policy_id: UUID | None = None
     policy_version: int | None = None
+    execution_status: str = "NOT_EXECUTED"
     decided_by: UUID | None = None
     decided_at: datetime | None = None
     requested_at: datetime

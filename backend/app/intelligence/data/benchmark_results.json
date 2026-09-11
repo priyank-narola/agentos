@@ -1,0 +1,33 @@
+{
+  "benchmarks": [
+    {
+      "benchmark_version": "benchmark-v1",
+      "dataset_version": "corpus-v1",
+      "dataset_size": 50,
+      "timestamp": "2026-09-09T09:10:15.879496+00:00",
+      "model_provider": "none",
+      "rule_engine": {
+        "accuracy": 0.7,
+        "false_allow_rate": 0.0,
+        "false_deny_rate": 0.04,
+        "total": 50,
+        "correct": 35,
+        "false_allow": 0,
+        "false_deny": 2
+      },
+      "model_engine": {
+        "accuracy": null,
+        "false_allow_rate": null,
+        "false_deny_rate": null,
+        "total": 0,
+        "correct": 0,
+        "false_allow": 0,
+        "false_deny": 0,
+        "errors": 0,
+        "unavailable": 50
+      },
+      "failure_cases": [],
+      "security_guarantee": "The deterministic policy engine always makes the final decision. Intelligence recommendations (rule or model) are advisory only and cannot authorize execution."
+    }
+  ]
+}

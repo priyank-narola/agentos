@@ -2,32 +2,123 @@
 @tailwind components;
 @tailwind utilities;
 
+/* ── Design tokens (single source of truth for raw values) ───────────── */
 :root {
-  --background: #f4f6f5;
-  --foreground: #101827;
+  /* Color */
+  --color-canvas: #f4f6f5;
+  --color-surface: #ffffff;
+  --color-surface-muted: #f5f7f6;
+  --color-surface-sunken: #eef1f0;
+  --color-ink: #101827;
+  --color-ink-muted: #51606c;
+  --color-ink-subtle: #6c7886;
+  --color-ink-faint: #a0a9b2;
+  --color-hairline: #e5e8ea;
+  --color-hairline-strong: #d4dadb;
+  --color-signal: #2e7d68;
+  --color-signal-hover: #256e5b;
+  --color-focus-ring: #1f6f5a;
+  --color-focus-ring-on-dark: #7fd8c2;
+
+  /* Semantic status */
+  --color-success: #0f6d4f;
+  --color-success-bg: #e9f4ee;
+  --color-success-border: #cfe5d9;
+  --color-warning: #8f5a07;
+  --color-warning-bg: #fbf4e3;
+  --color-warning-border: #ecd9ad;
+  --color-danger: #b3261e;
+  --color-danger-bg: #fdf0ee;
+  --color-danger-border: #f2cfcb;
+  --color-info: #1a56a0;
+  --color-info-bg: #eef3fa;
+  --color-info-border: #d3e1f2;
+  --color-neutral: #51606c;
+  --color-neutral-bg: #f4f5f6;
+  --color-neutral-border: #e0e3e6;
+
+  /* Geometry + elevation */
+  --radius-control: 6px;
+  --radius-card: 8px;
+  --radius-popover: 10px;
+  --radius-dialog: 12px;
+  --shadow-card: 0 1px 2px rgba(16, 24, 39, 0.04), 0 1px 1px rgba(16, 24, 39, 0.03);
+  --shadow-elevated: 0 6px 16px rgba(16, 24, 39, 0.08), 0 2px 4px rgba(16, 24, 39, 0.04);
+  --shadow-dialog: 0 16px 40px rgba(16, 24, 39, 0.18), 0 2px 8px rgba(16, 24, 39, 0.08);
+
+  /* Motion */
+  --ease-standard: cubic-bezier(0.2, 0, 0, 1);
+  --ease-emphasized: cubic-bezier(0.16, 1, 0.3, 1);
+  --duration-fast: 150ms;
+  --duration-standard: 200ms;
+
+  /* Legacy aliases (existing body usage) */
+  --background: var(--color-canvas);
+  --foreground: var(--color-ink);
 }
 
+/* ── Base ────────────────────────────────────────────────────────────── */
 * { box-sizing: border-box; }
 html { -webkit-text-size-adjust: 100%; }
 body {
   margin: 0;
-  background: var(--background);
-  color: var(--foreground);
+  background: var(--color-canvas);
+  color: var(--color-ink);
   font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Inter, Roboto, "Helvetica Neue", Arial, sans-serif;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
   text-rendering: optimizeLegibility;
-  font-feature-settings: "kern" 1, "liga" 1;
+  font-feature-settings: "kern" 1, "liga" 1, "tnum" 0;
+  line-height: 1.5;
 }
 a { color: inherit; text-decoration: none; }
-h1, h2, h3, h4 { letter-spacing: -0.011em; }
+h1, h2, h3, h4, h5, h6 { letter-spacing: -0.011em; }
+button { font: inherit; }
 ::selection { background: rgba(46, 125, 104, 0.18); }
+
+/* ── Keyboard focus (visible, tokenized) ─────────────────────────────── */
 :focus-visible {
-  outline: 2px solid #2e7d68;
+  outline: 2px solid var(--color-focus-ring);
   outline-offset: 2px;
-  border-radius: 4px;
+  border-radius: 2px;
 }
-/* Restrained, consistent scrollbars for scrollable panels */
+.on-dark :focus-visible,
+.on-dark:focus-visible {
+  outline-color: var(--color-focus-ring-on-dark);
+}
+
+/* ── Utility helpers ─────────────────────────────────────────────────── */
+.tnum { font-variant-numeric: tabular-nums; }
+.eyebrow {
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+}
+
+/* Purposeful entry motion for disclosure panels (reduced-motion disabled globally). */
+@keyframes rise-in {
+  from { opacity: 0; transform: translateY(3px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+.animate-rise-in {
+  animation: rise-in var(--duration-standard) var(--ease-emphasized) both;
+}
+
+/* ── Scrollbars (restrained) ─────────────────────────────────────────── */
 ::-webkit-scrollbar { width: 10px; height: 10px; }
 ::-webkit-scrollbar-thumb { background: #d3d8d6; border-radius: 6px; }
 ::-webkit-scrollbar-thumb:hover { background: #b8c0bc; }
+::-webkit-scrollbar-track { background: transparent; }
+
+/* ── Motion: honor reduced-motion preferences ────────────────────────── */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}

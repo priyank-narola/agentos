@@ -57,8 +57,8 @@ class DevTokenResponse(BaseModel):
 @router.post("/dev-token", response_model=DevTokenResponse)
 def issue_dev_token(payload: DevTokenRequest, db: Session = Depends(get_db)) -> DevTokenResponse:
     """Issue a short-lived development token for a Principal (non-production only)."""
-    if settings.app_env == "production":
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Not available in production")
+    if not settings.dev_token_enabled:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Not available")
     secret = rest_signing_secret()
     if secret is None:  # pragma: no cover - unreachable outside production
         raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail="Signing key not configured")

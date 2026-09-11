@@ -2,40 +2,88 @@
 
 import Link from "next/link";
 import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
+
 import { ActionRequest, api } from "@/lib/api";
-import { RegistryShell, StateMessage, StatusPill } from "@/components/registry-shell";
+import { RegistryShell, StateMessage } from "@/components/registry-shell";
+import { Status } from "@/components/ui/Status";
+import { DataTable, type DataColumn } from "@/components/ui/DataTable";
+import { formatDateTime, shortId } from "@/lib/format";
 
 export default function ActionRequestsPage() {
+  const router = useRouter();
   const [requests, setRequests] = useState<ActionRequest[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
+
   useEffect(() => {
     api.actionRequests().then(setRequests).catch((reason: Error) => setError(reason.message)).finally(() => setLoading(false));
   }, []);
 
+  const columns: DataColumn<ActionRequest>[] = [
+    {
+      key: "who",
+      header: "Agent",
+      render: (r) => (
+        <div className="min-w-0">
+          <p className="font-medium text-ink">{r.agent_name}</p>
+          <p className="mt-0.5 truncate text-xs text-inkSubtle">Acting for {r.principal_name ?? shortId(r.principal_id)}</p>
+        </div>
+      ),
+    },
+    {
+      key: "action",
+      header: "Action",
+      render: (r) => (
+        <div className="min-w-0">
+          <p className="text-ink">{r.action_name}</p>
+          <p className="mt-0.5 truncate text-[11px] text-inkFaint">{r.tool_name}</p>
+        </div>
+      ),
+    },
+    { key: "resource", header: "Resource", render: (r) => <span className="font-mono text-xs text-inkSubtle">{r.resource_key}</span> },
+    { key: "risk", header: "Risk", render: (r) => <Status value={r.risk_classification ?? "LOW"} /> },
+    { key: "decision", header: "Decision", render: (r) => <Status value={r.decision ?? r.status} /> },
+    { key: "execution", header: "Execution", render: (r) => <Status value={r.execution_status ?? "NOT_EXECUTED"} /> },
+    {
+      key: "time",
+      header: "Requested",
+      headerClassName: "text-right",
+      align: "right",
+      render: (r) => (
+        <span className="text-xs text-inkFaint" title={formatDateTime(r.requested_at)}>
+          {new Date(r.requested_at).toLocaleDateString()}
+        </span>
+      ),
+    },
+  ];
+
   return (
-    <RegistryShell title="Action requests" eyebrow="Governed actions">
-      <p className="mb-6 max-w-2xl text-sm leading-6 text-slate-500">
-        Every governed action request and its server-generated decision chain — open a request to see identity, policy, risk, approval, execution, and audit for that single action.
-      </p>
+    <RegistryShell title="Action requests" eyebrow="Action governance">
+      <div className="mb-6 flex flex-wrap items-center justify-between gap-3">
+        <p className="max-w-2xl text-sm leading-6 text-inkSubtle">
+          Every governed action and its decision chain. Open a request to inspect who acted, why it was allowed or blocked, and the proof.
+        </p>
+        <div className="flex items-center gap-3">
+          <Link href="/gateway" className="text-[13px] font-medium text-inkSubtle hover:text-ink">
+            Test a request
+          </Link>
+          <span className="text-xs text-inkFaint">{requests.length} records</span>
+        </div>
+      </div>
+
       {error && <StateMessage tone="error">Unable to load action requests. {error}</StateMessage>}
       {loading && !error && <StateMessage>Loading governed actions…</StateMessage>}
-      {!loading && !error && requests.length === 0 && <StateMessage>No action requests recorded yet.</StateMessage>}
+      {!loading && !error && requests.length === 0 && <StateMessage>No governed actions recorded yet. Run the guided demo to create one.</StateMessage>}
       {requests.length > 0 && (
-        <div className="overflow-hidden border border-slate-200 bg-white">
-          <div className="grid grid-cols-[1.3fr_1fr_1fr_0.9fr_0.9fr] gap-4 border-b border-slate-200 bg-slate-50 px-5 py-3 text-xs font-semibold uppercase tracking-wide text-slate-500">
-            <span>Agent / action</span><span>Resource</span><span>Risk</span><span>Decision</span><span>Requested</span>
-          </div>
-          {requests.map((request) => (
-            <Link key={request.id} href={`/action-requests/${request.id}`} className="grid grid-cols-[1.3fr_1fr_1fr_0.9fr_0.9fr] gap-4 border-b border-slate-100 px-5 py-4 text-sm last:border-0 hover:bg-slate-50">
-              <span><strong className="block font-medium text-ink">{request.agent_name}</strong><small className="text-xs text-slate-400">{request.action_name}</small></span>
-              <span className="text-slate-500">{request.resource_key}</span>
-              <span>{request.risk_classification ? <StatusPill value={`${request.risk_classification} · ${request.risk_score}`} /> : <span className="text-xs text-slate-400">—</span>}</span>
-              <span><StatusPill value={request.decision ?? request.status} /></span>
-              <span className="text-xs text-slate-400">{new Date(request.requested_at).toLocaleString()}</span>
-            </Link>
-          ))}
-        </div>
+        <DataTable<ActionRequest>
+          columns={columns}
+          rows={requests}
+          rowKey={(r) => r.id}
+          onRowClick={(r) => router.push(`/action-requests/${r.id}`)}
+          caption="Governed action requests"
+          minWidth={980}
+        />
       )}
     </RegistryShell>
   );

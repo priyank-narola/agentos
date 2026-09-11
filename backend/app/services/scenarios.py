@@ -43,7 +43,12 @@ class ScenarioEngine:
         p_requester = Principal(id=uuid.uuid4(), tenant_id=tenant.id, type=PrincipalType.HUMAN, name="Alice (Requester)", external_id=f"usr_alice_{uuid.uuid4().hex[:6]}", status=PrincipalStatus.ACTIVE)
         p_approver = Principal(id=uuid.uuid4(), tenant_id=tenant.id, type=PrincipalType.HUMAN, name="Bob (Approver)", external_id=f"usr_bob_{uuid.uuid4().hex[:6]}", status=PrincipalStatus.ACTIVE)
         agent = Agent(id=uuid.uuid4(), tenant_id=tenant.id, name=f"FinBot-{uuid.uuid4().hex[:4]}", owner_principal_id=p_requester.id, purpose="Fin", version="1.0", risk_classification=RiskClassification.LOW, status=AgentStatus.ACTIVE)
-        delegation = Delegation(id=uuid.uuid4(), tenant_id=tenant.id, principal_id=p_requester.id, agent_id=agent.id, scope="wire_transfer", status=DelegationStatus.ACTIVE)
+        # Full-authority delegation ("*" matches every scope in the evaluator). The base
+        # fixture exposes both vendor_payout (op "vendor") and wire_transfer, so a scope
+        # pinned to one action would spuriously trip DELEGATION_SCOPE_MISMATCH on the
+        # other — masking each scenario's actual demonstration (a low-risk allow, a
+        # policy deny, a timeout) behind an accidental scope block.
+        delegation = Delegation(id=uuid.uuid4(), tenant_id=tenant.id, principal_id=p_requester.id, agent_id=agent.id, scope="*", status=DelegationStatus.ACTIVE)
         tool = Tool(id=uuid.uuid4(), tenant_id=tenant.id, name=f"wire_tool_{uuid.uuid4().hex[:6]}", description="desc", status=CapabilityStatus.ACTIVE)
         action_low = Action(id=uuid.uuid4(), tenant_id=tenant.id, tool_id=tool.id, name="vendor_payout", description="desc", risk_level=RiskClassification.LOW, status=CapabilityStatus.ACTIVE)
         action_high = Action(id=uuid.uuid4(), tenant_id=tenant.id, tool_id=tool.id, name="wire_transfer", description="desc", risk_level=RiskClassification.HIGH, status=CapabilityStatus.ACTIVE)
@@ -68,9 +73,14 @@ class ScenarioEngine:
             idempotency_key=f"idem-a-{uuid.uuid4()}"
         )
         res = self.gateway.submit(req)
-        exec_res = self.sandbox_provider.execute(res.action_request_id, req.parameters, req.idempotency_key, tenant_id=tenant.id)
-        persist_execution_result(self.db, action_request_id=res.action_request_id, tenant_id=tenant.id, result=exec_res, parameters=req.parameters)
-        self.db.commit()
+        # Execution follows the authoritative gateway decision — never fabricated.
+        # A low-risk authorized action settles immediately through the sandbox provider.
+        execution_state = "NOT_EXECUTED"
+        if res.decision == "ALLOW":
+            exec_res = self.sandbox_provider.execute(res.action_request_id, req.parameters, req.idempotency_key, tenant_id=tenant.id)
+            persist_execution_result(self.db, action_request_id=res.action_request_id, tenant_id=tenant.id, result=exec_res, parameters=req.parameters)
+            self.db.commit()
+            execution_state = exec_res.status.value
 
         return {
             "scenario_key": "SCENARIO_A",
@@ -81,10 +91,10 @@ class ScenarioEngine:
             "action": act_low.name,
             "resource": resource.resource_key,
             "risk_classification": "LOW",
-            "policy_decision": "ALLOW",
+            "policy_decision": res.decision,
             "approval_state": "NOT_REQUIRED",
-            "execution_state": exec_res.status.value,
-            "final_outcome": "SUCCESS",
+            "execution_state": execution_state,
+            "final_outcome": "SUCCESS" if execution_state == "EXECUTION_SUCCEEDED" else "BLOCKED",
             "action_request_id": str(res.action_request_id)
         }
 
@@ -273,9 +283,15 @@ class ScenarioEngine:
             idempotency_key=f"idem-g-{uuid.uuid4()}"
         )
         res = self.gateway.submit(req)
-        exec_res = self.sandbox_provider.execute(res.action_request_id, req.parameters, req.idempotency_key, tenant_id=tenant.id)
-        persist_execution_result(self.db, action_request_id=res.action_request_id, tenant_id=tenant.id, result=exec_res, parameters=req.parameters)
-        self.db.commit()
+        # Execution follows the authoritative gateway decision — never fabricated.
+        # The raw parameters carry force_timeout so the provider exercises its
+        # timeout path; the state machine must record TIMEOUT safely.
+        execution_state = "NOT_EXECUTED"
+        if res.decision == "ALLOW":
+            exec_res = self.sandbox_provider.execute(res.action_request_id, req.parameters, req.idempotency_key, tenant_id=tenant.id)
+            persist_execution_result(self.db, action_request_id=res.action_request_id, tenant_id=tenant.id, result=exec_res, parameters=req.parameters)
+            self.db.commit()
+            execution_state = exec_res.status.value
 
         return {
             "scenario_key": "SCENARIO_G",
@@ -286,9 +302,9 @@ class ScenarioEngine:
             "action": act_low.name,
             "resource": resource.resource_key,
             "risk_classification": "LOW",
-            "policy_decision": "ALLOW",
+            "policy_decision": res.decision,
             "approval_state": "NOT_REQUIRED",
-            "execution_state": exec_res.status.value,
+            "execution_state": execution_state,
             "final_outcome": "SAFE_TIMEOUT_HANDLED",
             "action_request_id": str(res.action_request_id)
         }
@@ -304,12 +320,18 @@ class ScenarioEngine:
             idempotency_key=idem_key
         )
         res1 = self.gateway.submit(req1)
-        exec1 = self.sandbox_provider.execute(res1.action_request_id, req1.parameters, idem_key, tenant_id=tenant.id)
-        persist_execution_result(self.db, action_request_id=res1.action_request_id, tenant_id=tenant.id, result=exec1, parameters=req1.parameters)
-        self.db.commit()
+        # Execution follows the authoritative gateway decision — never fabricated.
+        first_execution_state = "NOT_EXECUTED"
+        second_execution_state = "NOT_EXECUTED"
+        if res1.decision == "ALLOW":
+            exec1 = self.sandbox_provider.execute(res1.action_request_id, req1.parameters, idem_key, tenant_id=tenant.id)
+            persist_execution_result(self.db, action_request_id=res1.action_request_id, tenant_id=tenant.id, result=exec1, parameters=req1.parameters)
+            self.db.commit()
+            first_execution_state = exec1.status.value
 
-        # Duplicate attempt with same idempotency key
-        exec2 = self.sandbox_provider.execute(res1.action_request_id, req1.parameters, idem_key, tenant_id=tenant.id)
+            # Duplicate attempt with same idempotency key -> provider dedups (no new row).
+            exec2 = self.sandbox_provider.execute(res1.action_request_id, req1.parameters, idem_key, tenant_id=tenant.id)
+            second_execution_state = exec2.status.value
 
         return {
             "scenario_key": "SCENARIO_H",
@@ -319,8 +341,8 @@ class ScenarioEngine:
             "agent": agent.name,
             "action": act_low.name,
             "resource": resource.resource_key,
-            "first_execution_state": exec1.status.value,
-            "second_execution_state": exec2.status.value,
+            "first_execution_state": first_execution_state,
+            "second_execution_state": second_execution_state,
             "final_outcome": "DUPLICATE_PREVENTED",
             "action_request_id": str(res1.action_request_id)
         }
