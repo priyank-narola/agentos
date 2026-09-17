@@ -35,7 +35,13 @@ class ObservabilityService:
         count_stmt = select(func.count()).select_from(stmt.subquery())
         total_count = self.db.scalar(count_stmt) or 0
 
-        stmt = stmt.order_by(AuditEvent.created_at.desc()).offset(offset).limit(limit)
+        # Timestamps can tie at database precision. Keep the global feed stable
+        # and preserve reverse causal order for events from the same action.
+        stmt = stmt.order_by(
+            AuditEvent.created_at.desc(),
+            AuditEvent.event_sequence.desc(),
+            AuditEvent.id.desc(),
+        ).offset(offset).limit(limit)
         events = list(self.db.scalars(stmt).all())
 
         timeline_items = []

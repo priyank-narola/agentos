@@ -378,7 +378,7 @@ class FinancialWorkflowDemoService:
         audit_events = list(self.db.scalars(
             select(AuditEvent)
             .where(AuditEvent.action_request_id == gateway_res.action_request_id)
-            .order_by(AuditEvent.created_at.asc())
+            .order_by(AuditEvent.event_sequence.asc(), AuditEvent.created_at.asc(), AuditEvent.id.asc())
         ).all())
 
 
