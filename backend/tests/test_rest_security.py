@@ -20,6 +20,7 @@ from sqlalchemy.orm import sessionmaker
 from sqlalchemy.pool import StaticPool
 
 import app.api.deps as rest_deps
+import app.api.auth_tokens as auth_tokens_module
 import app.auth as auth_module
 from app.api.deps import REST_DEV_SECRET
 from app.config import Settings, settings
@@ -105,6 +106,30 @@ def test_unauthenticated_request_is_rejected(db_session):
     _provision(db_session, "ta")
     response = client.get("/api/v1/action-requests")
     assert response.status_code == 401
+
+
+def test_dev_token_is_a_development_only_opt_in(db_session, monkeypatch):
+    """The local demo may opt in, but hosted environments must never mint identities."""
+    _, principal, _, _ = _provision(db_session, "dev-token")
+    monkeypatch.setattr(
+        auth_tokens_module,
+        "settings",
+        Settings(app_env="development", dev_token_enabled=True),
+    )
+    response = client.post("/api/v1/auth/dev-token", json={"external_id": principal.external_id})
+    assert response.status_code == 200
+    assert response.json()["access_token"]
+
+
+@pytest.mark.parametrize("environment", ["staging", "production"])
+def test_dev_token_is_never_issued_outside_development(monkeypatch, environment):
+    monkeypatch.setattr(
+        auth_tokens_module,
+        "settings",
+        Settings(app_env=environment, dev_token_enabled=True),
+    )
+    response = client.post("/api/v1/auth/dev-token", json={"external_id": "any-principal"})
+    assert response.status_code == 404
 
 
 @pytest.mark.parametrize("environment", ["staging", "production"])

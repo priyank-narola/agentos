@@ -55,6 +55,11 @@ def test_non_production_configuration_keeps_local_development_available() -> Non
     validate_runtime_configuration(Settings(app_env="development", database_url=""))
 
 
+def test_staging_configuration_rejects_development_token_issuance() -> None:
+    with pytest.raises(RuntimeConfigurationError, match="DEV_TOKEN_ENABLED"):
+        validate_runtime_configuration(Settings(app_env="staging", dev_token_enabled=True))
+
+
 @pytest.mark.parametrize(
     ("overrides", "message"),
     [

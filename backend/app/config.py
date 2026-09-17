@@ -84,6 +84,8 @@ def validate_runtime_configuration(current: Settings = settings) -> None:
         raise RuntimeConfigurationError(
             f"APP_ENV must be one of {sorted(allowed_environments)}, got {current.app_env!r}"
         )
+    if current.app_env != "development" and current.dev_token_enabled:
+        raise RuntimeConfigurationError("DEV_TOKEN_ENABLED must be false outside development")
     if current.app_env != "production":
         return
 

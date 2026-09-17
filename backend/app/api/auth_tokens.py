@@ -1,8 +1,9 @@
 """Development-only token issuance for the REST control plane.
 
-Enabled only when APP_ENV != production. In production, access tokens must come
-from the configured external OAuth identity provider; this endpoint is never
-available there. Purpose: let the local demo UI and tests act as a chosen
+Enabled only when ``APP_ENV=development`` and explicitly opted in. Every hosted
+environment (staging and production) must obtain access tokens from the
+configured external OAuth identity provider; this endpoint is never available
+there. Purpose: let the local demo UI and tests act as a chosen
 Principal through the same signed-token path used everywhere else.
 """
 
@@ -56,8 +57,8 @@ class DevTokenResponse(BaseModel):
 
 @router.post("/dev-token", response_model=DevTokenResponse)
 def issue_dev_token(payload: DevTokenRequest, db: Session = Depends(get_db)) -> DevTokenResponse:
-    """Issue a short-lived development token for a Principal (non-production only)."""
-    if not settings.dev_token_enabled:
+    """Issue a short-lived development token for a Principal (development only)."""
+    if settings.app_env != "development" or not settings.dev_token_enabled:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Not available")
     secret = rest_signing_secret()
     if secret is None:  # pragma: no cover - unreachable outside production
