@@ -30,10 +30,15 @@ REST_DEV_SECRET = "agentos-local-dev-secret"
 
 def is_rest_auth_required() -> bool:
     """True when REST bearer authentication must be enforced."""
+    # A production-like process must never be made anonymous by an accidental
+    # environment override. The development flag only exists to keep the local
+    # synthetic demo usable without an identity provider.
+    if settings.app_env != "development":
+        return True
     env_flag = _env_flag("REST_AUTH_REQUIRED")
     if env_flag is not None:
         return env_flag
-    return settings.app_env != "development"
+    return False
 
 
 def _env_flag(name: str) -> bool | None:

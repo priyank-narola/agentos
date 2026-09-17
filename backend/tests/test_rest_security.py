@@ -107,6 +107,16 @@ def test_unauthenticated_request_is_rejected(db_session):
     assert response.status_code == 401
 
 
+@pytest.mark.parametrize("environment", ["staging", "production"])
+def test_rest_auth_cannot_be_disabled_outside_development(monkeypatch, environment):
+    """REST_AUTH_REQUIRED=false must never create an anonymous hosted API."""
+    import app.api.deps as auth_deps
+
+    monkeypatch.setenv("REST_AUTH_REQUIRED", "false")
+    monkeypatch.setattr(auth_deps, "settings", Settings(app_env=environment))
+    assert auth_deps.is_rest_auth_required() is True
+
+
 def test_invalid_token_is_rejected(db_session):
     _provision(db_session, "ta")
     response = client.get("/api/v1/action-requests", headers={"Authorization": "Bearer not.a.token"})
