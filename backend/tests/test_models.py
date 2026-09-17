@@ -34,9 +34,10 @@ Base.metadata.create_all(engine)
 def test_all_domain_tables_are_registered() -> None:
     table_names = set(inspect(engine).get_table_names())
     assert table_names == {
-        "tenants",
-        "principals",
-        "agents",
+            "tenants",
+            "principals",
+            "principal_roles",
+            "agents",
         "delegations",
         "tools",
         "actions",
@@ -48,6 +49,7 @@ def test_all_domain_tables_are_registered() -> None:
         "approval_requests",
         "audit_events",
         "financial_executions",
+        "reconciliation_jobs",
         "webhook_events",
     }
 

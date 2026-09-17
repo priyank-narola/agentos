@@ -40,6 +40,10 @@ def test_registry_crud_and_lifecycle() -> None:
     assert client.post("/api/v1/agents", json=agent_payload(principal["id"])).status_code == 409
     assert client.get(f"/api/v1/agents/{created['id']}").json()["name"] == "RegistryAgent"
     assert client.post(f"/api/v1/agents/{created['id']}/suspend").json()["status"] == "SUSPENDED"
+    assert client.post(f"/api/v1/agents/{created['id']}/activate").json()["status"] == "ACTIVE"
+    assert client.post(f"/api/v1/agents/{created['id']}/retire").json()["status"] == "RETIRED"
+    assert client.post(f"/api/v1/agents/{created['id']}/activate").status_code == 400
+    assert client.patch(f"/api/v1/agents/{created['id']}", json={"status": "ACTIVE"}).status_code == 400
 
     tool = client.post("/api/v1/tools", json={"name": "RegistryTool", "description": "Test tool", "status": "ACTIVE"}).json()
     action_payload = {"name": "inspect", "description": "Inspect data", "risk_level": "LOW", "status": "ACTIVE"}
@@ -91,4 +95,3 @@ def test_get_principal_by_id_regression() -> None:
     response = client.get(f"/api/v1/principals/{p_id}")
     assert response.status_code == 200
     assert response.json()["id"] == p_id
-

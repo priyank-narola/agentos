@@ -27,6 +27,8 @@ export const NAV_GROUPS: NavGroup[] = [
     items: [
       { label: "Action requests", href: "/action-requests", hint: "Every governed agent action and its decision" },
       { label: "Approvals", href: "/approvals", hint: "Human authorization queue" },
+      { label: "Reconciliation", href: "/reconciliation", hint: "Resolve provider outcomes that remain uncertain" },
+      { label: "Customer remedies", href: "/customer-remediation", hint: "Prepare governed refunds from support context" },
     ],
   },
   {
@@ -35,6 +37,7 @@ export const NAV_GROUPS: NavGroup[] = [
     items: [
       { label: "Agents", href: "/agents", hint: "Registered agent identities" },
       { label: "Delegations", href: "/delegations", hint: "Authority granted by principals" },
+      { label: "Access control", href: "/access", hint: "Tenant roles for operators and reviewers" },
     ],
   },
   {
@@ -52,7 +55,7 @@ export const NAV_GROUPS: NavGroup[] = [
 
 /** Developer / test surfaces — reachable, but deliberately subordinate. */
 export const DEVELOPER_NAV: NavItem[] = [
-  { label: "Policy evaluation", href: "/policy-evaluation" },
+  { label: "Action preflight", href: "/policy-evaluation" },
   { label: "Request a test action", href: "/gateway" },
 ];
 
@@ -67,7 +70,8 @@ const MORE_GROUP: NavGroup = {
   href: DEMO_NAV.href,
   items: [
     { label: DEMO_NAV.label, href: DEMO_NAV.href, hint: "Guided end-to-end governance walkthrough" },
-    { label: "Policy evaluation", href: "/policy-evaluation", hint: "Dry-run a decision without executing" },
+    { label: "Action preflight", href: "/policy-evaluation", hint: "Preview policy, risk, and next controls without executing" },
+    { label: "Launch readiness", href: "/launch-readiness", hint: "Production release gates and remaining work" },
     { label: "Request a test action", href: "/gateway", hint: "Submit an action through the live gateway" },
   ],
 };

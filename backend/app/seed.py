@@ -24,7 +24,9 @@ from app.db.models import (
     PolicyEffect,
     PolicyRule,
     PolicyStatus,
+    TenantRole,
 )
+from app.services.authorization import grant_role
 
 
 def _first(session: Session, model, **filters):
@@ -43,6 +45,9 @@ def seed_demo(session: Session) -> dict[str, int]:
         principal = Principal(name="Demo Admin", type=PrincipalType.HUMAN, external_id="demo-admin", status=PrincipalStatus.ACTIVE)
         session.add(principal)
         session.flush()
+
+    for role in (TenantRole.ADMIN, TenantRole.POLICY_AUTHOR, TenantRole.OPERATOR, TenantRole.AUDITOR):
+        grant_role(session, tenant_id=DEFAULT_TENANT_ID, principal_id=principal.id, role=role)
 
     agent_specs = {
         "FinanceAgent": ("Finance operations", "1.0.0", RiskClassification.HIGH),

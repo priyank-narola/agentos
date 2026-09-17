@@ -55,6 +55,11 @@ def rest_signing_secret() -> str | None:
     return None
 
 
+def has_rest_auth_verifier() -> bool:
+    """Return whether REST auth has a production-capable verifier configured."""
+    return bool(settings.mcp_auth_secret_key or settings.mcp_auth_public_key or settings.mcp_auth_jwks_url)
+
+
 def _resolve_principal(sub: str, db: Session) -> Principal | None:
     principal = db.scalar(select(Principal).where(Principal.external_id == sub))
     if principal is not None:
@@ -67,7 +72,7 @@ def _resolve_principal(sub: str, db: Session) -> Principal | None:
 
 def _authenticate(authorization: str | None, db: Session) -> Principal:
     secret = rest_signing_secret()
-    if secret is None:
+    if secret is None and not has_rest_auth_verifier():
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Authentication is not configured on this deployment",
@@ -78,6 +83,9 @@ def _authenticate(authorization: str | None, db: Session) -> Principal:
             headers={"WWW-Authenticate": 'Bearer realm="AgentOS"'},
             detail="Missing Authorization header",
         )
+    # A production deployment may validate tokens using an HMAC secret, a
+    # configured public key, or a remote JWKS. TokenValidator resolves the
+    # latter two from the server-controlled Settings when no HMAC is supplied.
     validator = TokenValidator(secret_key=secret)
     try:
         claims = validator.validate_token(authorization.strip())

@@ -14,7 +14,11 @@ depends_on: str | Sequence[str] | None = None
 
 
 def upgrade() -> None:
-    op.execute("ALTER TYPE approvalstatus ADD VALUE IF NOT EXISTS 'CANCELLED'")
+    # SQLite stores SQLAlchemy enums as constrained strings, so there is no
+    # database enum type to alter in the local demo runtime. PostgreSQL keeps
+    # the explicit enum migration required for production databases.
+    if op.get_bind().dialect.name == "postgresql":
+        op.execute("ALTER TYPE approvalstatus ADD VALUE IF NOT EXISTS 'CANCELLED'")
 
 
 def downgrade() -> None:

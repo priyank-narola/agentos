@@ -35,7 +35,7 @@ from sqlalchemy import inspect, text
 from sqlalchemy.dialects import postgresql
 from sqlalchemy.engine import Connection
 
-from alembic import op
+from alembic import context, op
 
 revision: str = "20260908_0003"
 down_revision: str | None = "20260824_0002"
@@ -173,7 +173,28 @@ def _ensure_tenant_fk(bind: Connection, inspector, table: str) -> None:
 
 
 def upgrade() -> None:
+    # Revision 0001 intentionally creates the current declarative metadata so
+    # an offline SQL render already contains the tenant/ledger schema. Offline
+    # connections cannot support SQLAlchemy inspection, which this additive
+    # legacy-upgrade migration needs. Emit only the canonical seed row required
+    # by a fresh rendered schema; the full guarded backfill path runs online
+    # against a real database.
+    if context.is_offline_mode():
+        op.execute(
+            "INSERT INTO tenants (id, name, slug, status) "
+            "SELECT '00000000-0000-0000-0000-000000000001', "
+            "'Default Demo Tenant', 'default-demo-tenant', 'ACTIVE' "
+            "WHERE NOT EXISTS (SELECT 1 FROM tenants "
+            "WHERE id = '00000000-0000-0000-0000-000000000001')"
+        )
+        return
     bind = op.get_bind()
+    # Revision 0001 creates the full declarative schema for the local SQLite
+    # demo runtime. This guarded legacy reconciliation uses PostgreSQL DDL
+    # (foreign-key alteration and UPDATE ... FROM), so it is intentionally a
+    # no-op on SQLite rather than making local startup depend on Postgres.
+    if bind.dialect.name == "sqlite":
+        return
     inspector = inspect(bind)
 
     _ensure_tenants_table(bind, inspector)
@@ -254,6 +275,8 @@ def downgrade() -> None:
     of the tenant model on a legacy pre-tenant database is not supported by
     design (see revision docstring).
     """
+    if context.is_offline_mode():
+        return
     bind = op.get_bind()
     inspector = inspect(bind)
 

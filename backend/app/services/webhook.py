@@ -12,59 +12,8 @@ from sqlalchemy.orm import Session
 
 from app.config import settings
 from app.db.models import AuditEvent, ActorType, ExecutionState, FinancialExecution, WebhookEvent
-
-# Persisted-ledger lifecycle transitions for webhook state updates. This is the
-# model-level ExecutionState lifecycle (distinct from the provider ExecutionStatus
-# state machine in app.execution).
-_EXECUTION_STATE_TRANSITIONS: dict[ExecutionState, set[ExecutionState]] = {
-    ExecutionState.PENDING: {
-        ExecutionState.SUBMITTED,
-        ExecutionState.PROCESSING,
-        ExecutionState.SUCCEEDED,
-        ExecutionState.FAILED,
-        ExecutionState.UNKNOWN,
-        ExecutionState.CANCELLED,
-    },
-    ExecutionState.SUBMITTED: {
-        ExecutionState.PROCESSING,
-        ExecutionState.SUCCEEDED,
-        ExecutionState.FAILED,
-        ExecutionState.UNKNOWN,
-        ExecutionState.CANCELLED,
-        ExecutionState.RECONCILIATION_REQUIRED,
-    },
-    ExecutionState.PROCESSING: {
-        ExecutionState.SUCCEEDED,
-        ExecutionState.FAILED,
-        ExecutionState.UNKNOWN,
-        ExecutionState.CANCELLED,
-        ExecutionState.RECONCILIATION_REQUIRED,
-    },
-    ExecutionState.UNKNOWN: {
-        ExecutionState.SUCCEEDED,
-        ExecutionState.FAILED,
-        ExecutionState.CANCELLED,
-        ExecutionState.RECONCILIATION_REQUIRED,
-    },
-    ExecutionState.RECONCILIATION_REQUIRED: {
-        ExecutionState.SUCCEEDED,
-        ExecutionState.FAILED,
-        ExecutionState.CANCELLED,
-    },
-    # Terminal states accept no outgoing transitions (out-of-order webhooks fail closed).
-    ExecutionState.SUCCEEDED: set(),
-    ExecutionState.FAILED: set(),
-    ExecutionState.CANCELLED: set(),
-}
-
-
-def _validate_execution_state_transition(current: ExecutionState, target: ExecutionState) -> None:
-    if current == target:
-        return
-    if target not in _EXECUTION_STATE_TRANSITIONS.get(current, set()):
-        raise WebhookError(
-            f"Out-of-order webhook ignored: illegal ExecutionState transition from {current.value} to {target.value}"
-        )
+from app.services.audit_sequence import next_action_event_sequence
+from app.services.execution_lifecycle import ExecutionLifecycleError, validate_execution_transition
 
 
 class WebhookError(ValueError):
@@ -178,7 +127,10 @@ class WebhookSecurityHandler:
             target_state = ExecutionState.UNKNOWN
 
         # Validate state transition safety (handles out-of-order webhooks)
-        _validate_execution_state_transition(current_state, target_state)
+        try:
+            validate_execution_transition(current_state, target_state)
+        except ExecutionLifecycleError as exc:
+            raise WebhookError(f"Out-of-order webhook ignored: {exc}") from exc
 
         return target_state
 
@@ -274,6 +226,7 @@ class WebhookDeliveryService:
             actor_type=ActorType.SYSTEM,
             actor_id=uuid.UUID(int=0),
             action_request_id=request_uuid,
+            event_sequence=next_action_event_sequence(self.db, request_uuid),
             event_data={"event_id": str(event_id), "status": target_state.value if hasattr(target_state, "value") else str(target_state), "deduplicated": False},
         ))
         self.db.commit()

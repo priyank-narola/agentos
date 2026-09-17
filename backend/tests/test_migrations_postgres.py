@@ -45,6 +45,7 @@ pytestmark = pytest.mark.skipif(
 EXPECTED_TABLES = {
     "tenants",
     "principals",
+    "principal_roles",
     "agents",
     "delegations",
     "tools",

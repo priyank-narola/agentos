@@ -4,7 +4,7 @@ import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
 
 import {
-  Approval, ApproverCandidate, GatewayResponse, ObservabilityActionDetail, TimelineEvent, TreasuryManifest, api, devTokenFor,
+  Approval, ApproverCandidate, CustomerRemediationManifest, GatewayResponse, ObservabilityActionDetail, TimelineEvent, api, devTokenFor,
 } from "@/lib/api";
 import { RegistryShell, StateMessage } from "@/components/registry-shell";
 import { SandboxBadge } from "@/components/ui/Banner";
@@ -13,7 +13,7 @@ import { GOVERNANCE_STAGES } from "@/lib/governance";
 type Phase = "idle" | "pending_approval" | "decided" | "blocked";
 
 const SCENARIOS: Array<{ key: string; title: string; what: string; run: string }> = [
-  { key: "A", title: "Low-risk action (auto-authorized)", what: "A small, allowed vendor payout is evaluated and auto-authorized.", run: "Run allowed scenario" },
+  { key: "A", title: "Allowed action", what: "A permitted action is evaluated through the governance controls.", run: "Run allowed scenario" },
   { key: "C", title: "Unauthorized action", what: "An agent requests a transfer it has no policy allowance for.", run: "Run blocked scenario" },
   { key: "D", title: "Payload tampering", what: "The approved payload is modified after approval.", run: "Run tamper scenario" },
   { key: "E", title: "Revoked delegation", what: "The delegation is revoked while the request awaits approval.", run: "Run revocation scenario" },
@@ -38,9 +38,10 @@ function money(amount: unknown, currency: string) {
 }
 
 export default function DemoPage() {
-  const [manifest, setManifest] = useState<TreasuryManifest | null>(null);
-  const [amount, setAmount] = useState("25000.00");
+  const [manifest, setManifest] = useState<CustomerRemediationManifest | null>(null);
+  const [amount, setAmount] = useState("49.00");
   const [currency, setCurrency] = useState("USD");
+  const [remedy, setRemedy] = useState<"refund" | "account_credit">("refund");
   const [phase, setPhase] = useState<Phase>("idle");
   const [gateway, setGateway] = useState<GatewayResponse | null>(null);
   const [approval, setApproval] = useState<Approval | null>(null);
@@ -56,7 +57,7 @@ export default function DemoPage() {
 
   useEffect(() => {
     let active = true;
-    api.treasuryBootstrap()
+    api.customerRemediationBootstrap()
       .then(async (m) => {
         if (!active) return;
         setManifest(m); setAmount(m.default_amount); setCurrency(m.default_currency); setApproverId(m.approver.id);
@@ -80,22 +81,39 @@ export default function DemoPage() {
 
   const startRequest = useCallback(async () => {
     if (!manifest) return;
+    const selectedAction = manifest.actions[remedy];
+    const isRefund = remedy === "refund";
     setError(null);
     setBusy("gateway");
     try {
       await devTokenFor(manifest.requester.external_id).catch(() => undefined);
+      const actionContext = {
+        summary: `${isRefund ? "Refund" : "Account credit"} ${money(amount, currency)} for support ticket ${manifest.ticket_id} after a verified service interruption.`,
+        target_system: "Sandbox billing connector",
+        before: isRefund
+          ? { ticket_id: manifest.ticket_id, payment_reference: manifest.payment_reference, refundable_amount: "149.00", prior_refund_amount: "0.00" }
+          : { ticket_id: manifest.ticket_id, billing_reference: manifest.billing_reference, account_credit_balance: "0.00" },
+        proposed_change: { remedy, amount, currency, customer_account_id: manifest.resource.resource_key },
+        recovery_class: isRefund ? "IRREVERSIBLE" as const : "COMPENSATABLE" as const,
+        recovery_plan: isRefund
+          ? "Do not attempt an automated reversal. Escalate any incorrect refund to finance and customer support for a documented corrective action."
+          : "Correct an incorrect account credit through a documented, separately governed billing adjustment.",
+      };
       const params = {
-        source_account_id: manifest.resource.resource_key,
-        destination_account_id: "ACC-VENDOR-8888",
+        ticket_id: manifest.ticket_id,
+        ...(isRefund ? { payment_reference: manifest.payment_reference } : { billing_reference: manifest.billing_reference }),
+        customer_account_id: manifest.resource.resource_key,
         amount, currency,
-        beneficiary_id: "BEN-ACME-8888",
-        transaction_reference: `REF-${crypto.randomUUID().slice(0, 8).toUpperCase()}`,
-        purpose: "Quarterly vendor payout (governed demo)",
+        // The current sandbox supports USD/EUR/GBP, each with two decimal places.
+        amount_minor: String(Math.round(Number(amount) * 100)),
+        remedy,
+        reason: "Service outage credit requested after verified billing review",
+        transaction_reference: `${isRefund ? "RFD" : "CRD"}-${crypto.randomUUID().slice(0, 8).toUpperCase()}`,
       };
       const gatewayResponse = await api.gateway({
         principal_id: manifest.requester.id, agent_id: manifest.agent.id,
-        action_id: manifest.action.id, resource_id: manifest.resource.id,
-        parameters: params, idempotency_key: `demo-${crypto.randomUUID()}`,
+        action_id: selectedAction.id, resource_id: manifest.resource.id,
+        parameters: params, action_context: actionContext, idempotency_key: `demo-${crypto.randomUUID()}`,
       });
       setGateway(gatewayResponse);
       const approvals = await api.approvals();
@@ -112,7 +130,7 @@ export default function DemoPage() {
     } catch (reason) {
       setError(reason instanceof Error ? reason.message : "Request failed");
     } finally { setBusy(null); }
-  }, [manifest, amount, currency]);
+  }, [manifest, amount, currency, remedy]);
 
   const decide = useCallback(async (mode: "approve" | "reject") => {
     if (!approval || !approverId) return;
@@ -148,6 +166,9 @@ export default function DemoPage() {
   const blockedByReviewer = phase === "blocked";
   const requester = manifest?.requester;
   const approver = manifest?.approver;
+  const selectedAction = manifest?.actions[remedy];
+  const remedyLabel = remedy === "refund" ? "refund" : "account credit";
+  const remedyTitle = remedy === "refund" ? "Refund" : "Account credit";
 
   const stages: Array<{ label: string; caption: string; state: "done" | "active" | "pending" | "bad" }> = (() => {
     const stateFor = (
@@ -155,7 +176,7 @@ export default function DemoPage() {
     ): { caption: string; state: "done" | "active" | "pending" | "bad" } => {
       switch (id) {
         case "request":
-          return { caption: gateway ? `Agent requested ${money(amount, currency)} ${currency}` : "Agent requests a wire transfer", state: gateway ? "done" : "pending" };
+          return { caption: gateway ? `Agent proposed ${money(amount, currency)} ${currency} ${remedyLabel}` : `Agent proposes a customer ${remedyLabel}`, state: gateway ? "done" : "pending" };
         case "identify":
           return { caption: gateway ? `${manifest?.agent.name} acting for ${requester?.name}` : "Identity & delegation resolved", state: gateway ? "done" : "pending" };
         case "evaluate":
@@ -184,9 +205,9 @@ export default function DemoPage() {
   const stageColor: Record<string, string> = { done: "border-emerald-400 bg-emerald-400", active: "border-amber-300 bg-amber-300", bad: "border-red-500 bg-red-500", pending: "border-slate-400 bg-ink" };
 
   return (
-    <RegistryShell title="Treasury governance demo" eyebrow="Guided demonstration">
+    <RegistryShell title="Customer remedy control demo" eyebrow="Selected pilot workflow">
       <p className="mb-6 max-w-3xl text-sm leading-6 text-inkSubtle">
-        Watch a complete governed action end to end: request → identify → evaluate → decide → approve → revalidate → execute → audit. Every action runs in the AgentOS sandbox provider — no real money movement.
+        Watch a support AI propose a customer refund or account credit end to end: request → identify → evaluate → decide → approve → revalidate → execute → audit. Every action runs in the sandbox — no customer data, billing connection, or money movement.
       </p>
       <div className="mb-6 flex flex-wrap items-center justify-between gap-3 rounded-card border border-hairline bg-surface px-4 py-3">
         <p className="inline-flex items-center gap-2 text-[13px] font-medium text-inkSubtle">
@@ -203,17 +224,22 @@ export default function DemoPage() {
           <div className="border border-slate-200 bg-white p-6">
             <h2 className="text-xl font-semibold text-ink">What will happen</h2>
             <ol className="mt-5 space-y-3 text-sm leading-6 text-slate-600">
-              <li><strong className="text-ink">Agent requests a financial action.</strong> TreasuryBot-v1, acting for {requester?.name} ({requester?.title}), requests a {money(Number(amount), currency)} USD wire transfer.</li>
-              <li><strong className="text-ink">AgentOS governs the request.</strong> Identity and delegation are resolved, policy is evaluated, and risk is calculated.</li>
-              <li><strong className="text-ink">A high-value wire requires human approval.</strong> {approver?.name} ({approver?.title}) — an independent human — reviews the exact payload and decides.</li>
+              <li><strong className="text-ink">Agent proposes a customer remedy.</strong> {manifest.agent.name}, acting for {requester?.name} ({requester?.title}), proposes a {money(Number(amount), currency)} {remedyLabel} for ticket {manifest.ticket_id}.</li>
+              <li><strong className="text-ink">The control layer governs the request.</strong> Ticket/payment context, identity, delegation, policy, and risk are bound before a decision.</li>
+              <li><strong className="text-ink">The remedy requires independent approval.</strong> {approver?.name} ({approver?.title}) reviews the exact customer, billing reference, amount, and recovery posture.</li>
               <li><strong className="text-ink">Revalidation, execution, proof.</strong> The request is revalidated, executed in the sandbox, recorded in the execution ledger, and audited.</li>
-              <li><strong className="text-ink">See AgentOS block unsafe actions.</strong> Run the unauthorized, tamper, revocation, isolation, timeout, and duplicate scenarios below.</li>
+              <li><strong className="text-ink">See unsafe actions blocked.</strong> Run the unauthorized, tamper, revocation, isolation, timeout, and duplicate scenarios below.</li>
             </ol>
           </div>
           <div className="border border-slate-200 bg-white p-6">
             <h2 className="font-semibold text-ink">Action to demonstrate</h2>
             <div className="mt-4 space-y-4">
-              <label className="block text-sm font-medium text-slate-600">Amount
+              <label className="block text-sm font-medium text-slate-600">Remedy type
+                <select value={remedy} onChange={(e) => setRemedy(e.target.value as "refund" | "account_credit")} className="mt-1 block w-full border border-slate-300 bg-white px-3 py-2.5 text-sm">
+                  <option value="refund">Refund payment</option><option value="account_credit">Apply account credit</option>
+                </select>
+              </label>
+              <label className="block text-sm font-medium text-slate-600">{remedyTitle} amount
                 <input value={amount} onChange={(e) => setAmount(e.target.value)} className="mt-1 block w-full border border-slate-300 px-3 py-2.5 text-sm tabular-nums" />
               </label>
               <label className="block text-sm font-medium text-slate-600">Currency
@@ -221,7 +247,8 @@ export default function DemoPage() {
                   <option value="USD">USD</option><option value="EUR">EUR</option><option value="GBP">GBP</option>
                 </select>
               </label>
-              <button type="button" disabled={busy !== null} onClick={startRequest} className="w-full bg-ink px-4 py-3 text-sm font-medium text-white disabled:bg-slate-300">{busy === "gateway" ? "Evaluating…" : "Run Treasury Governance Demo"}</button>
+              <div className="border border-slate-100 bg-slate-50 p-3 text-xs leading-5 text-slate-600">Ticket {manifest.ticket_id} · {remedy === "refund" ? `Payment ${manifest.payment_reference}` : `Billing ${manifest.billing_reference}`} · Customer {manifest.resource.resource_key}</div>
+              <button type="button" disabled={busy !== null} onClick={startRequest} className="w-full bg-ink px-4 py-3 text-sm font-medium text-white disabled:bg-slate-300">{busy === "gateway" ? "Evaluating…" : `Run ${remedyLabel} control demo`}</button>
             </div>
           </div>
         </section>
@@ -251,7 +278,7 @@ export default function DemoPage() {
                 <div>
                   <p className="text-xs uppercase tracking-wide text-slate-400">Requested action</p>
                   <p className="mt-1 text-3xl font-semibold tabular-nums text-ink">{money(amount, currency)} <span className="text-lg text-slate-400">{currency}</span></p>
-                  <p className="text-sm text-slate-500">{manifest.action.name} · {manifest.resource.resource_key}</p>
+                  <p className="text-sm text-slate-500">{selectedAction?.name} · {manifest.resource.resource_key}</p>
                 </div>
                 {gateway && (
                   <div className="flex flex-wrap gap-2">
@@ -268,7 +295,7 @@ export default function DemoPage() {
               <div className="mt-3 border border-slate-100 bg-white p-3 text-sm">
                 <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-400">Authority (delegation)</p>
                 <p className="mt-1 text-slate-700">
-                  {requester?.name} delegated scope <span className="font-mono font-semibold text-ink">{delegationScopes.join(", ") || "wire_transfer"}</span> to {manifest.agent.name}; the requested action ({manifest.action.name}) is within that delegated capability.
+                  {requester?.name} delegated scope <span className="font-mono font-semibold text-ink">{delegationScopes.join(", ") || "issue_refund"}</span> to {manifest.agent.name}; the requested action ({selectedAction?.name}) is within that delegated capability.
                 </p>
               </div>
             </section>
@@ -276,7 +303,7 @@ export default function DemoPage() {
             {phase === "pending_approval" && approval && (
               <section className="border border-amber-300 bg-amber-50/40 p-6">
                 <p className="text-xs font-semibold uppercase tracking-[0.16em] text-amber-800">Request requires human approval</p>
-                <p className="mt-2 text-sm text-slate-700">A high-value wire is only allowed with a one-time approval by a distinct, eligible human — never the requester.</p>
+                  <p className="mt-2 text-sm text-slate-700">A customer {remedyLabel} is only allowed with a one-time approval by a distinct, eligible human — never the requester.</p>
                 <div className="mt-3 flex flex-wrap gap-2 text-xs">
                   <span className="rounded border border-emerald-200 bg-emerald-50 px-2 py-1 font-medium text-emerald-800">Payload digest-bound — any change after approval blocks execution</span>
                   {approval.expires_at && <span className="rounded border border-slate-200 bg-white px-2 py-1 text-slate-600">Approval expires {new Date(approval.expires_at).toLocaleString()}</span>}
@@ -310,7 +337,7 @@ export default function DemoPage() {
                 {decidedApproved && !executed && <p className="mt-2 text-2xl font-bold text-ink">APPROVED — awaiting/checking execution evidence</p>}
                 {blockedByReviewer && <p className="mt-2 text-2xl font-bold text-red-800">BLOCKED — REJECTED BY APPROVER · NOT EXECUTED</p>}
                 <div className="mt-4 grid gap-3 text-sm sm:grid-cols-2 xl:grid-cols-3">
-                  {[["Principal", requester?.name], ["Action", `${money(amount, currency)} ${currency} wire`], ["Approver", approver?.name], ["Integrity", "Payload verified unchanged"], ["Revalidation", "TOCTOU security revalidation passed"], ["Execution record", executed ? `Sandbox · ${obs?.execution.provider_transaction_id ?? ""}` : "Not executed"]].map(([label, value]) => (
+                  {[["Customer case", manifest.ticket_id], ["Action", `${money(amount, currency)} ${currency} ${remedyLabel}`], ["Approver", approver?.name], ["Integrity", "Payload verified unchanged"], ["Revalidation", "TOCTOU security revalidation passed"], ["Execution record", executed ? `Sandbox · ${obs?.execution.provider_transaction_id ?? ""}` : "Not executed"]].map(([label, value]) => (
                     <div key={label} className="border border-slate-200 bg-white/70 p-3"><p className="text-[10px] uppercase tracking-wide text-slate-400">{label}</p><p className="mt-0.5 font-medium text-ink">{value}</p></div>
                   ))}
                 </div>

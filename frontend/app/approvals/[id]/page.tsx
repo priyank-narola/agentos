@@ -126,6 +126,33 @@ export default function ApprovalDetail({ params }: { params: Promise<{ id: strin
             </div>
           </header>
 
+          {approval.action_context && (
+            <section className="rounded-card border border-hairline bg-surface p-6">
+              <div className="flex flex-wrap items-start justify-between gap-4">
+                <div>
+                  <p className="eyebrow text-inkFaint">Business intent & recovery</p>
+                  <p className="mt-2 text-[15px] font-semibold text-ink">{approval.action_context.summary}</p>
+                </div>
+                <Status value={approval.action_context.recovery_class} />
+              </div>
+              <div className="mt-4 grid gap-4 md:grid-cols-2">
+                <p className="text-[13px] leading-6 text-inkSubtle"><span className="font-medium text-ink">Target system:</span> {approval.action_context.target_system}</p>
+                <p className="text-[13px] leading-6 text-inkSubtle"><span className="font-medium text-ink">Recovery:</span> {approval.action_context.recovery_plan}</p>
+              </div>
+              <div className="mt-4 grid gap-4 md:grid-cols-2">
+                <div className="rounded-card border border-hairline bg-surfaceMuted p-4">
+                  <p className="text-[11px] uppercase tracking-wide text-inkFaint">Current state</p>
+                  <pre className="mt-2 overflow-x-auto text-xs leading-5 text-inkMuted">{JSON.stringify(approval.action_context.before, null, 2)}</pre>
+                </div>
+                <div className="rounded-card border border-hairline bg-surfaceMuted p-4">
+                  <p className="text-[11px] uppercase tracking-wide text-inkFaint">Proposed state</p>
+                  <pre className="mt-2 overflow-x-auto text-xs leading-5 text-inkMuted">{JSON.stringify(approval.action_context.proposed_change, null, 2)}</pre>
+                </div>
+              </div>
+              <p className="mt-4 text-xs leading-5 text-inkSubtle">These values are included in the digest-bound action payload. Any change after this approval request was created blocks execution.</p>
+            </section>
+          )}
+
           {/* WHO / WHAT / WHY / RISK */}
           <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
             <section className="rounded-card border border-hairline bg-surface p-5">

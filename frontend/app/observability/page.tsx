@@ -3,20 +3,21 @@
 import Link from "next/link";
 import { useEffect, useState } from "react";
 
-import { AuditVerify, ObservabilityMetrics, TenantPosture, TimelineEvent, api } from "@/lib/api";
+import { AuditVerify, ObservabilityMetrics, RuntimeOperationsMetrics, TenantPosture, TimelineEvent, api } from "@/lib/api";
 import { RegistryShell, StateMessage, StatusPill } from "@/components/registry-shell";
 
 export default function ObservabilityPage() {
   const [metrics, setMetrics] = useState<ObservabilityMetrics | null>(null);
   const [posture, setPosture] = useState<TenantPosture | null>(null);
   const [audit, setAudit] = useState<AuditVerify | null>(null);
+  const [runtime, setRuntime] = useState<RuntimeOperationsMetrics | null>(null);
   const [events, setEvents] = useState<TimelineEvent[]>([]);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    Promise.all([api.metrics(), api.tenantPosture(), api.auditVerify(), api.timeline()])
-      .then(([m, p, a, t]) => {
-        setMetrics(m); setPosture(p); setAudit(a); setEvents(t.events);
+    Promise.all([api.metrics(), api.tenantPosture(), api.auditVerify(), api.timeline(), api.runtimeMetrics()])
+      .then(([m, p, a, t, r]) => {
+        setMetrics(m); setPosture(p); setAudit(a); setEvents(t.events); setRuntime(r);
       })
       .catch((reason: Error) => setError(reason.message));
   }, []);
@@ -59,6 +60,15 @@ export default function ObservabilityPage() {
               <p className="mt-2 text-sm text-slate-600">{audit.total_requests_verified} requests verified · {audit.violation_count} violations</p>
               {audit.violations.slice(0, 10).map((v, i) => <p key={i} className="mt-1 text-xs text-red-700">{v.type}</p>)}
             </div>
+          )}
+
+          {runtime && (
+            <section className="mt-6 border border-hairline bg-surface p-6">
+              <div className="flex flex-wrap items-start justify-between gap-3"><div><p className="eyebrow">Runtime operations</p><h2 className="mt-1 font-semibold text-ink">Current application process</h2></div><StatusPill value="PROCESS-LOCAL" /></div>
+              <p className="mt-2 text-sm leading-6 text-inkSubtle">Payload-free metrics for this application process only. Central monitoring and alerts remain required before production launch.</p>
+              <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">{[["Requests", runtime.request_total], ["Failed requests", runtime.failed_request_total], ["Average latency", `${runtime.average_latency_ms} ms`], ["Max latency", `${runtime.max_latency_ms} ms`]].map(([label, value]) => <div key={String(label)} className="border border-hairline p-3"><p className="text-xs text-inkFaint">{label}</p><p className="mt-1 text-xl font-semibold text-ink">{value}</p></div>)}</div>
+              <p className="mt-4 text-xs text-inkFaint">Started {new Date(runtime.started_at).toLocaleString()} · status responses {Object.entries(runtime.status_counts).map(([status, count]) => `${status}: ${count}`).join(" · ") || "none yet"}</p>
+            </section>
           )}
 
           {posture && (

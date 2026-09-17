@@ -1,0 +1,7 @@
+.env.local
+.next
+node_modules
+*.log
+tsconfig.tsbuildinfo
+.claude
+_agentos_preview_frontend.sh

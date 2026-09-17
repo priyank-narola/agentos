@@ -34,7 +34,7 @@ def reset_database():
         session.commit()
 
 
-def pending_approval(key="approval-key"):
+def pending_approval(key="approval-key", action_context=None):
     with TestingSession() as session:
         principal = Principal(name="Approval Owner", external_id=str(uuid4()), type="HUMAN")
         approver = Principal(name="Approval Reviewer", external_id=str(uuid4()), type="HUMAN")
@@ -48,7 +48,7 @@ def pending_approval(key="approval-key"):
         session.add(policy); session.commit()
         ids = {"principal_id": str(principal.id), "agent_id": str(agent.id), "action_id": str(action.id), "resource_id": str(resource.id)}
         approver_id = str(approver.id)
-    gateway = client.post("/api/v1/action-requests", json={**ids, "parameters": {"amount": 18000}, "idempotency_key": key})
+    gateway = client.post("/api/v1/action-requests", json={**ids, "parameters": {"amount": 18000}, "action_context": action_context, "idempotency_key": key})
     assert gateway.status_code == 201 and gateway.json()["gateway_status"] == "PENDING_APPROVAL"
     approval = client.get("/api/v1/approvals").json()[0]
     return ids, approver_id, gateway.json(), approval
@@ -125,3 +125,48 @@ def test_approval_endpoint_cannot_modify_original_evidence() -> None:
     assert detail["action_id"] == ids["action_id"]
     assert detail["risk_score"] == gateway["risk_score"]
     assert detail["status"] == "PENDING"
+
+
+def test_approval_rejects_when_payload_bound_action_context_is_tampered() -> None:
+    context = {
+        "summary": "Apply a $25 account credit for a missed delivery promise",
+        "target_system": "support-platform",
+        "before": {"account_credit": "0.00"},
+        "proposed_change": {"account_credit": "25.00"},
+        "recovery_class": "COMPENSATABLE",
+        "recovery_plan": "Create an offsetting debit if the credit was issued incorrectly.",
+    }
+    _, approver_id, gateway, approval = pending_approval("context-tamper-key", action_context=context)
+    assert approval["action_context"] == context
+
+    with TestingSession() as session:
+        request = session.get(ActionRequest, UUID(gateway["action_request_id"]))
+        request.parameters = {
+            **request.parameters,
+            "_action_context": {**context, "summary": "Apply a $2,500 account credit"},
+        }
+        session.commit()
+
+    result = client.post(f"/api/v1/approvals/{approval['id']}/approve", json=action_payload(approver_id))
+    assert result.status_code == 409
+    assert "Payload tamper detected" in result.json()["detail"]
+
+
+def test_approved_action_returns_provider_receipt_and_declared_recovery_posture() -> None:
+    context = {
+        "summary": "Apply a $25 account credit for a missed delivery promise",
+        "target_system": "support-platform",
+        "before": {"account_credit": "0.00"},
+        "proposed_change": {"account_credit": "25.00"},
+        "recovery_class": "COMPENSATABLE",
+        "recovery_plan": "Create an offsetting debit if the credit was issued incorrectly.",
+    }
+    _, approver_id, _, approval = pending_approval("receipt-key", action_context=context)
+    result = client.post(f"/api/v1/approvals/{approval['id']}/approve", json=action_payload(approver_id))
+    assert result.status_code == 200
+    receipt = result.json()["execution_receipt"]
+    assert receipt["status"] == "EXECUTED"
+    assert receipt["evidence_status"] == "RECORDED"
+    assert receipt["provider_name"] == "SandboxPaymentProvider"
+    assert receipt["recovery_status"] == "AVAILABLE"
+    assert receipt["recovery_plan"] == context["recovery_plan"]

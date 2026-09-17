@@ -19,11 +19,14 @@ export default function PoliciesPage() {
         <p className="max-w-2xl text-sm leading-6 text-slate-500">
           Policies decide what an agent is allowed to do and when a human must approve. Deny always wins, and anything not explicitly allowed is blocked by default.
         </p>
-        <Link href="/policy-evaluation" className="border border-ink px-4 py-2 text-sm font-medium text-ink hover:bg-ink hover:text-white">Test a request</Link>
+        <div className="flex flex-wrap gap-2">
+          <Link href="/policy-evaluation" className="border border-ink px-4 py-2 text-sm font-medium text-ink hover:bg-ink hover:text-white">Test a request</Link>
+          <Link href="/policies/new" className="bg-ink px-4 py-2 text-sm font-medium text-white hover:bg-slate-700">New draft policy</Link>
+        </div>
       </div>
       {loading && <StateMessage>Loading policies…</StateMessage>}
       {error && <StateMessage tone="error">Unable to load policies. {error}</StateMessage>}
-      {!loading && !error && policies.length === 0 && <StateMessage>No policies registered yet.</StateMessage>}
+      {!loading && !error && policies.length === 0 && <StateMessage>No policies registered yet. Create a draft, add its rules, test it, then publish it.</StateMessage>}
       {policies.length > 0 && (
         <div className="grid gap-4 md:grid-cols-2">
           {policies.map((policy) => (

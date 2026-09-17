@@ -1,0 +1,47 @@
+# Local integration environment only. It does not select a cloud provider or
+# make the product production-ready. Use deployment-managed secrets for any
+# hosted environment; never place them in this file.
+services:
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: action_control
+      POSTGRES_USER: action_control
+      POSTGRES_PASSWORD: local-development-only
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U action_control -d action_control"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+    ports:
+      - "5432:5432"
+    volumes:
+      - agentos-postgres-data:/var/lib/postgresql/data
+
+  backend:
+    build:
+      context: ./backend
+    environment:
+      APP_ENV: development
+      DATABASE_URL: postgresql+psycopg://action_control:local-development-only@postgres:5432/action_control
+      FRONTEND_ORIGIN: http://localhost:3000
+      DEV_TOKEN_ENABLED: "true"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    command: ["sh", "-c", "alembic upgrade head && uvicorn app.main:app --host 0.0.0.0 --port 8000"]
+    ports:
+      - "8000:8000"
+
+  frontend:
+    build:
+      context: ./frontend
+      args:
+        NEXT_PUBLIC_API_BASE_URL: http://localhost:8000
+    depends_on:
+      - backend
+    ports:
+      - "3000:3000"
+
+volumes:
+  agentos-postgres-data:

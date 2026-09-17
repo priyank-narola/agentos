@@ -44,6 +44,7 @@ from app.db.models import (
     Principal,
     PrincipalStatus,
     PrincipalType,
+    TenantRole,
     Resource,
     ResourceSensitivity,
     ResourceStatus,
@@ -53,6 +54,7 @@ from app.db.models import (
 from app.schemas import ApprovalActionRequest, GatewayRequestCreate
 from app.services.approval import ApprovalConflictError, ApprovalService
 from app.services.execution_ledger import fetch_execution_status
+from app.services.authorization import grant_role
 from app.services.gateway import GatewayIdempotencyConflict, GatewayService
 
 logger = logging.getLogger(__name__)
@@ -85,6 +87,8 @@ def _ensure_approver(session: Session, requester: Principal) -> Principal:
         )
         session.add(approver)
         session.flush()
+    grant_role(session, tenant_id=DEFAULT_TENANT_ID, principal_id=approver.id, role=TenantRole.APPROVER)
+    grant_role(session, tenant_id=DEFAULT_TENANT_ID, principal_id=approver.id, role=TenantRole.OPERATOR)
     return approver
 
 

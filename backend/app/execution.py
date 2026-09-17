@@ -81,12 +81,18 @@ class ExecutionResult:
     raw_response: dict[str, Any] = field(default_factory=dict)
 
 
-class PaymentExecutionProvider(abc.ABC):
-    """Abstract interface for provider-agnostic financial execution engine."""
+class ActionExecutionProvider(abc.ABC):
+    """Provider contract for a governed action execution.
+
+    The contract deliberately carries only the executable action parameters.
+    Policy evaluation, approval, action context, evidence binding, and audit
+    sequencing remain the control plane's responsibility, rather than being
+    delegated to a connector implementation.
+    """
 
     @abc.abstractmethod
     def execute(self, request_id: UUID, parameters: dict[str, Any], idempotency_key: str, tenant_id: UUID | None = None) -> ExecutionResult:
-        """Execute a financial action via the provider."""
+        """Execute a governed action via the provider."""
         pass
 
     @abc.abstractmethod
@@ -101,8 +107,16 @@ class PaymentExecutionProvider(abc.ABC):
 
     @abc.abstractmethod
     def cancel(self, execution_id: str, provider_transaction_id: str | None = None) -> ExecutionResult:
-        """Attempt cancellation of a pending or submitted financial execution."""
+        """Attempt cancellation of a pending or submitted action execution."""
         pass
+
+
+class PaymentExecutionProvider(ActionExecutionProvider):
+    """Backward-compatible name for the original financial provider contract.
+
+    Existing payment connectors can keep inheriting from this class while new
+    non-financial connectors use :class:`ActionExecutionProvider` directly.
+    """
 
 
 class SandboxPaymentProvider(PaymentExecutionProvider):
@@ -214,4 +228,3 @@ class SandboxPaymentProvider(PaymentExecutionProvider):
         )
         self._history[execution_id] = cancelled
         return cancelled
-

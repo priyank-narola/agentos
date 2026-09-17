@@ -12,13 +12,17 @@ import uuid
 
 import jwt
 import pytest
+from cryptography.hazmat.primitives import serialization
+from cryptography.hazmat.primitives.asymmetric import rsa
 from fastapi.testclient import TestClient
 from sqlalchemy import create_engine, select
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy.pool import StaticPool
 
+import app.api.deps as rest_deps
+import app.auth as auth_module
 from app.api.deps import REST_DEV_SECRET
-from app.config import settings
+from app.config import Settings, settings
 from app.db.base import Base
 from app.db.session import get_db
 from app.db.models import (
@@ -107,6 +111,51 @@ def test_invalid_token_is_rejected(db_session):
     _provision(db_session, "ta")
     response = client.get("/api/v1/action-requests", headers={"Authorization": "Bearer not.a.token"})
     assert response.status_code == 401
+
+
+def test_rest_route_accepts_configured_rs256_public_key(db_session, monkeypatch):
+    """REST auth must use an external asymmetric verifier, not the dev HMAC.
+
+    This covers the actual router dependency path rather than only validating a
+    TokenValidator in isolation. An eventual OIDC/JWKS provider integration
+    still needs staging validation with a real issuer.
+    """
+    _, principal, _, _ = _provision(db_session, "rs256")
+    private_key = rsa.generate_private_key(public_exponent=65537, key_size=2048)
+    private_pem = private_key.private_bytes(
+        encoding=serialization.Encoding.PEM,
+        format=serialization.PrivateFormat.PKCS8,
+        encryption_algorithm=serialization.NoEncryption(),
+    )
+    public_pem = private_key.public_key().public_bytes(
+        encoding=serialization.Encoding.PEM,
+        format=serialization.PublicFormat.SubjectPublicKeyInfo,
+    ).decode("utf-8")
+    production_identity = Settings(
+        app_env="production",
+        mcp_auth_issuer="https://identity.example.test",
+        mcp_auth_audience="https://api.example.test",
+        mcp_auth_public_key=public_pem,
+        mcp_auth_secret_key="",
+        mcp_auth_jwks_url="",
+    )
+    monkeypatch.setattr(rest_deps, "settings", production_identity)
+    monkeypatch.setattr(auth_module, "settings", production_identity)
+    now = int(time.time())
+    token = jwt.encode(
+        {
+            "sub": principal.external_id,
+            "iss": production_identity.mcp_auth_issuer,
+            "aud": production_identity.mcp_auth_audience,
+            "scope": production_identity.mcp_auth_required_scope,
+            "iat": now,
+            "exp": now + 3600,
+        },
+        private_pem,
+        algorithm="RS256",
+    )
+    response = client.get("/api/v1/action-requests", headers={"Authorization": f"Bearer {token}"})
+    assert response.status_code == 200
 
 
 def test_authenticated_request_is_tenant_scoped(db_session):
@@ -205,8 +254,8 @@ def test_policy_catalog_is_tenant_scoped(db_session):
     t_b, p_b, _, _ = _provision(db_session, "tb")
     headers_a = auth(p_a.external_id)
     # Create one policy per tenant.
-    pa = client.post("/api/v1/policies", json={"name": f"pol_a_{uuid.uuid4().hex[:6]}", "version": 1, "status": "ACTIVE", "priority": 10}, headers=headers_a)
-    pb = client.post("/api/v1/policies", json={"name": f"pol_b_{uuid.uuid4().hex[:6]}", "version": 1, "status": "ACTIVE", "priority": 10}, headers=auth(p_b.external_id))
+    pa = client.post("/api/v1/policies", json={"name": f"pol_a_{uuid.uuid4().hex[:6]}", "version": 1, "priority": 10}, headers=headers_a)
+    pb = client.post("/api/v1/policies", json={"name": f"pol_b_{uuid.uuid4().hex[:6]}", "version": 1, "priority": 10}, headers=auth(p_b.external_id))
     assert pa.status_code == 201 and pb.status_code == 201
     pid_a = pa.json()["id"]
     pid_b = pb.json()["id"]

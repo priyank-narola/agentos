@@ -9,12 +9,13 @@ tenant_id is always derived from the trusted server-side execution context
 (action request / approval tenant), never from client-supplied values.
 """
 
+from datetime import datetime, timezone
 from uuid import UUID
 
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from app.db.models import ExecutionState, FinancialExecution
+from app.db.models import ExecutionState, FinancialExecution, ReconciliationJob, ReconciliationJobStatus
 from app.execution import ExecutionResult, ExecutionStatus
 from app.financial import compute_payload_digest
 
@@ -114,4 +115,15 @@ def persist_execution_result(
     )
     db.add(record)
     db.flush()
+    if state == ExecutionState.UNKNOWN:
+        # This durable job contains only provider references held in the ledger;
+        # it never receives action parameters and cannot resubmit the action.
+        db.add(
+            ReconciliationJob(
+                tenant_id=tenant_id,
+                action_request_id=action_request_id,
+                status=ReconciliationJobStatus.PENDING.value,
+                next_check_at=datetime.now(timezone.utc),
+            )
+        )
     return record

@@ -19,7 +19,7 @@ from app.db.base import Base
 from app.db.session import get_db
 from app.db.models import Tenant, Principal, Agent, Tool, ApprovalRequest, FinancialExecution, ExecutionState, Delegation
 from app.main import app
-from app.services.demo import treasury_demo_manifest, FinancialWorkflowDemoService, _provision_treasury_environment
+from app.services.demo import customer_remediation_demo_manifest, treasury_demo_manifest, FinancialWorkflowDemoService, _provision_treasury_environment
 from app.services.approval import ApprovalService
 from app.schemas import GatewayRequestCreate, ApprovalActionRequest
 
@@ -81,6 +81,37 @@ def test_treasury_demo_manifest_is_idempotent(db_session):
     assert tools == 1
     principals = db_session.scalar(select(func.count(Principal.id)).where(Principal.tenant_id == uuid.UUID(first["tenant_id"])))
     assert principals == 2
+
+
+def test_customer_remediation_manifest_is_idempotent_and_governable(db_session):
+    first = customer_remediation_demo_manifest(db_session)
+    second = customer_remediation_demo_manifest(db_session)
+    assert first["tenant_name"] == "Northstar SaaS Support"
+    assert first["action"]["name"] == "issue_refund"
+    assert first["actions"]["account_credit"]["name"] == "issue_account_credit"
+    assert first["ticket_id"] == "ZD-10482"
+    assert second["tenant_id"] == first["tenant_id"]
+
+    from app.services.gateway import GatewayService
+    result = GatewayService(db_session).submit(GatewayRequestCreate(
+        principal_id=first["requester"]["id"], agent_id=first["agent"]["id"],
+        action_id=first["action"]["id"], resource_id=first["resource"]["id"],
+        parameters={"ticket_id": first["ticket_id"], "payment_reference": first["payment_reference"], "customer_account_id": first["resource"]["resource_key"], "amount": "49.00", "amount_minor": 4900, "currency": "USD", "remedy": "refund", "reason": "Verified service interruption", "transaction_reference": "RFD-TEST"},
+        action_context={"summary": "Refund a verified outage remedy.", "target_system": "Sandbox billing connector", "before": {"refundable_amount": "149.00"}, "proposed_change": {"amount": "49.00", "currency": "USD"}, "recovery_class": "IRREVERSIBLE", "recovery_plan": "Escalate an incorrect refund for a documented corrective action."},
+        idempotency_key="support-remedy-idem",
+    ))
+    assert result.gateway_status == "PENDING_APPROVAL"
+    assert result.action_context is not None
+    assert result.action_context.recovery_class.value == "IRREVERSIBLE"
+
+    credit_result = GatewayService(db_session).submit(GatewayRequestCreate(
+        principal_id=first["requester"]["id"], agent_id=first["agent"]["id"],
+        action_id=first["actions"]["account_credit"]["id"], resource_id=first["resource"]["id"],
+        parameters={"ticket_id": first["ticket_id"], "billing_reference": first["billing_reference"], "customer_account_id": first["resource"]["resource_key"], "amount": "25.00", "amount_minor": 2500, "currency": "USD", "remedy": "account_credit", "reason": "Verified service interruption", "transaction_reference": "CRD-TEST"},
+        action_context={"summary": "Apply a documented account credit.", "target_system": "Sandbox billing connector", "before": {"account_credit_balance": "0.00"}, "proposed_change": {"amount": "25.00", "currency": "USD"}, "recovery_class": "COMPENSATABLE", "recovery_plan": "Correct the billing ledger through a documented follow-up action."},
+        idempotency_key="support-credit-idem",
+    ))
+    assert credit_result.gateway_status == "PENDING_APPROVAL"
 
 
 def test_financial_workflow_demo_is_repeatable(db_session):

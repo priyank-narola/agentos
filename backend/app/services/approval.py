@@ -10,12 +10,18 @@ from app.db.models import (
     Action, CapabilityStatus, Tool
 )
 from app.repositories.approval import ApprovalRepository
-from app.schemas import ApprovalActionRequest, ApprovalDetailSchema
+from app.schemas import ActionContext, ApprovalActionRequest, ApprovalDetailSchema
 from app.services.errors import RegistryConflictError, RegistryValidationError
 
-from app.financial import compute_payload_digest
-from app.execution import SandboxPaymentProvider, ExecutionStatus
-from app.services.execution_ledger import persist_execution_result, fetch_execution_status
+from app.financial import ACTION_CONTEXT_PARAMETER_KEY, compute_payload_digest, executable_parameters
+from app.execution import ExecutionStatus
+from app.services.execution_ledger import persist_execution_result
+from app.services.execution_receipt import build_execution_receipt
+from app.services.audit_sequence import next_action_event_sequence
+from app.services.execution_provider_registry import ExecutionProviderRegistry, build_execution_provider_registry
+from app.services.authorization import RoleAuthorizationError, require_any_role
+from app.config import settings
+from app.db.models import TenantRole
 
 
 
@@ -27,13 +33,17 @@ class ApprovalTenantForbiddenError(ApprovalConflictError):
     """Raised when an operation crosses the authenticated tenant boundary."""
 
 
+class ApprovalRoleForbiddenError(ApprovalTenantForbiddenError):
+    """Raised when a production reviewer lacks approval authority."""
+
+
 class ApprovalService:
     EXPIRY_MINUTES = 15
 
-    def __init__(self, db: Session) -> None:
+    def __init__(self, db: Session, execution_providers: ExecutionProviderRegistry | None = None) -> None:
         self.db = db
         self.repository = ApprovalRepository(db)
-        self.execution_provider = SandboxPaymentProvider()
+        self.execution_providers = execution_providers or build_execution_provider_registry()
 
     def list(self, tenant_id: UUID | None = None) -> list[ApprovalDetailSchema]:
         return [self._detail(item) for item in self.repository.list(tenant_id=tenant_id)]
@@ -123,6 +133,25 @@ class ApprovalService:
             raise RegistryValidationError("Approver principal is required")
         if actor_id is not None and self.db.get(Principal, actor_id) is None:
             raise RegistryValidationError("Approver principal not found")
+
+        # Development data remains intentionally lightweight, but every staging
+        # or production approval transition requires explicit tenant authority.
+        # This check covers approve, reject, and cancel: an unprivileged user
+        # must not be able to silently block or dispose of another user's case.
+        if (
+            settings.app_env != "development"
+            and actor_id is not None
+            and target in {ApprovalStatus.APPROVED, ApprovalStatus.REJECTED, ApprovalStatus.CANCELLED}
+        ):
+            try:
+                require_any_role(
+                    self.db,
+                    tenant_id=approval.tenant_id,
+                    principal_id=actor_id,
+                    roles={TenantRole.ADMIN, TenantRole.APPROVER},
+                )
+            except RoleAuthorizationError as exc:
+                raise ApprovalRoleForbiddenError(str(exc)) from exc
 
         if target == ApprovalStatus.APPROVED:
             # 1. Separation of Duties (SoD / Dual Control) Enforcement
@@ -286,16 +315,18 @@ class ApprovalService:
         original = self._original_decision(request)
         digest = compute_payload_digest(request.parameters)
 
-        # Dispatch Execution via SandboxPaymentProvider with Tenant Context
+        # Route after the approval is payload-bound and fully revalidated. The
+        # provider receives executable parameters only, never control-plane data.
+        provider = self.execution_providers.resolve(request.action.name)
         self._audit("EXECUTION_STARTED", actor_id, approval, {
-            "provider": "SandboxPaymentProvider",
+            "provider": provider.__class__.__name__,
             "payload_digest": digest
         })
-        exec_res = self.execution_provider.execute(request.id, request.parameters, request.idempotency_key, tenant_id=approval.tenant_id)
+        exec_res = provider.execute(request.id, executable_parameters(request.parameters), request.idempotency_key, tenant_id=approval.tenant_id)
 
         exec_status = exec_res.status.value
         reason_msg = (
-            f"HUMAN_APPROVAL: Approved and executed via SandboxPaymentProvider (Status: {exec_status}, Ref: {exec_res.transaction_reference})"
+            f"HUMAN_APPROVAL: Approved and executed via {exec_res.provider_name} (Status: {exec_status}, Ref: {exec_res.transaction_reference})"
             if exec_res.status == ExecutionStatus.EXECUTION_SUCCEEDED
             else f"HUMAN_APPROVAL: Approved but execution failed ({exec_res.error_message})"
         )
@@ -354,6 +385,7 @@ class ApprovalService:
             agent_id=request.agent_id,
             action_request_id=request.id,
             decision_id=decision_id,
+            event_sequence=next_action_event_sequence(self.db, request.id),
             event_data={"approval_id": str(approval.id), "action_request_id": str(request.id), **data}
         ))
 
@@ -362,7 +394,10 @@ class ApprovalService:
         original = self._original_decision(request) if request.decisions else None
         risk_event = next((event for event in request.audit_events if event.event_type == "RISK_EVALUATED"), None)
         risk = risk_event.event_data if risk_event else {}
-        return ApprovalDetailSchema(id=approval.id, action_request_id=request.id, agent_id=request.agent_id, agent_name=request.agent.name, principal_id=request.principal_id, principal_name=request.principal.name if request.principal else None, action_id=request.action_id, action_name=request.action.name, tool_id=request.action.tool.id, tool_name=request.action.tool.name, resource_id=request.resource_id, resource_type=request.resource.resource_type, resource_key=request.resource.resource_key, parameters=request.parameters, requested_by=approval.requested_by, status=approval.status, reason=approval.reason, risk_score=int(original.risk_score) if original and original.risk_score is not None else None, risk_classification=risk.get("classification"), risk_factors=risk.get("factors", []), policy_id=original.policy_id if original else None, policy_version=original.policy_version if original else None, execution_status=fetch_execution_status(self.db, request.id), decided_by=approval.decided_by, decided_at=approval.decided_at, requested_at=request.requested_at, expires_at=approval.expires_at)
+        context = request.parameters.get(ACTION_CONTEXT_PARAMETER_KEY)
+        action_context = ActionContext.model_validate(context) if context else None
+        receipt = build_execution_receipt(self.db, request.id, action_context)
+        return ApprovalDetailSchema(id=approval.id, action_request_id=request.id, agent_id=request.agent_id, agent_name=request.agent.name, principal_id=request.principal_id, principal_name=request.principal.name if request.principal else None, action_id=request.action_id, action_name=request.action.name, tool_id=request.action.tool.id, tool_name=request.action.tool.name, resource_id=request.resource_id, resource_type=request.resource.resource_type, resource_key=request.resource.resource_key, parameters=executable_parameters(request.parameters), action_context=action_context, requested_by=approval.requested_by, status=approval.status, reason=approval.reason, risk_score=int(original.risk_score) if original and original.risk_score is not None else None, risk_classification=risk.get("classification"), risk_factors=risk.get("factors", []), policy_id=original.policy_id if original else None, policy_version=original.policy_version if original else None, execution_status=receipt.status, execution_receipt=receipt, decided_by=approval.decided_by, decided_at=approval.decided_at, requested_at=request.requested_at, expires_at=approval.expires_at)
 
     @staticmethod
     def _original_decision(request):

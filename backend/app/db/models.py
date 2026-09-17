@@ -29,6 +29,16 @@ class PrincipalStatus(StrEnum):
     RETIRED = "RETIRED"
 
 
+class TenantRole(StrEnum):
+    """Product roles granted per tenant, independent from external identity claims."""
+
+    ADMIN = "ADMIN"
+    POLICY_AUTHOR = "POLICY_AUTHOR"
+    APPROVER = "APPROVER"
+    OPERATOR = "OPERATOR"
+    AUDITOR = "AUDITOR"
+
+
 class AgentStatus(StrEnum):
     ACTIVE = "ACTIVE"
     SUSPENDED = "SUSPENDED"
@@ -115,6 +125,15 @@ class ExecutionState(StrEnum):
     RECONCILIATION_REQUIRED = "RECONCILIATION_REQUIRED"
 
 
+class ReconciliationJobStatus(StrEnum):
+    """Durable status-readback job states; never an action-execution state."""
+
+    PENDING = "PENDING"
+    RUNNING = "RUNNING"
+    COMPLETED = "COMPLETED"
+    ESCALATED = "ESCALATED"
+
+
 def enum_type(enum_class: type[enum.Enum]) -> SqlEnum:
     return SqlEnum(enum_class, name=enum_class.__name__.lower(), native_enum=True, create_constraint=True)
 
@@ -149,6 +168,28 @@ class Principal(TimestampMixin, Base):
     status: Mapped[PrincipalStatus] = mapped_column(enum_type(PrincipalStatus), nullable=False, default=PrincipalStatus.ACTIVE)
     tenant: Mapped[Tenant] = relationship()
     owned_agents: Mapped[list["Agent"]] = relationship(back_populates="owner", foreign_keys="Agent.owner_principal_id")
+
+
+class PrincipalRole(TimestampMixin, Base):
+    """A tenant-scoped role grant for one human principal.
+
+    External OIDC identity tells us *who* made the request; this table tells us
+    what operational authority that identity has in a tenant.
+    """
+
+    __tablename__ = "principal_roles"
+    __table_args__ = (
+        UniqueConstraint("tenant_id", "principal_id", "role", name="uq_principal_roles_tenant_principal_role"),
+        Index("ix_principal_roles_tenant_principal", "tenant_id", "principal_id"),
+    )
+
+    id: Mapped[uuid.UUID] = mapped_column(Uuid(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    tenant_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("tenants.id", ondelete="RESTRICT"), nullable=False)
+    principal_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("principals.id", ondelete="CASCADE"), nullable=False)
+    role: Mapped[TenantRole] = mapped_column(enum_type(TenantRole), nullable=False)
+    granted_by_principal_id: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("principals.id", ondelete="SET NULL"))
+    tenant: Mapped[Tenant] = relationship()
+    principal: Mapped[Principal] = relationship(foreign_keys=[principal_id])
 
 
 class Agent(TimestampMixin, Base):
@@ -329,6 +370,8 @@ class AuditEvent(Base):
     __tablename__ = "audit_events"
     __table_args__ = (
         Index("ix_audit_events_action_request_created_at", "action_request_id", "created_at"),
+        Index("ix_audit_events_action_request_sequence", "action_request_id", "event_sequence"),
+        UniqueConstraint("action_request_id", "event_sequence", name="uq_audit_events_action_request_sequence"),
         Index("ix_audit_events_agent_created_at", "agent_id", "created_at"),
         Index("ix_audit_events_tenant_created_at", "tenant_id", "created_at"),
     )
@@ -341,6 +384,7 @@ class AuditEvent(Base):
     agent_id: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("agents.id", ondelete="RESTRICT"))
     action_request_id: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("action_requests.id", ondelete="RESTRICT"))
     decision_id: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("decisions.id", ondelete="RESTRICT"))
+    event_sequence: Mapped[int | None] = mapped_column(Integer)
     event_data: Mapped[dict[str, Any]] = mapped_column(JSON_PAYLOAD, nullable=False)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), nullable=False)
     tenant: Mapped[Tenant] = relationship()
@@ -366,6 +410,31 @@ class FinancialExecution(TimestampMixin, Base):
     payload_digest: Mapped[str] = mapped_column(String(100), nullable=False)
     error_code: Mapped[str | None] = mapped_column(String(100))
     error_message: Mapped[str | None] = mapped_column(Text)
+    tenant: Mapped[Tenant] = relationship()
+    action_request: Mapped[ActionRequest] = relationship()
+
+
+class ReconciliationJob(TimestampMixin, Base):
+    """A durable request to read a provider outcome after an uncertain write.
+
+    A job has no executable action parameters by design. Processing it can only
+    query a provider's status reference and record that readback.
+    """
+
+    __tablename__ = "reconciliation_jobs"
+    __table_args__ = (
+        UniqueConstraint("action_request_id", name="uq_reconciliation_jobs_action_request"),
+        Index("ix_reconciliation_jobs_tenant_status_due", "tenant_id", "status", "next_check_at"),
+    )
+
+    id: Mapped[uuid.UUID] = mapped_column(Uuid(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    tenant_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("tenants.id", ondelete="RESTRICT"), nullable=False)
+    action_request_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("action_requests.id", ondelete="RESTRICT"), nullable=False)
+    status: Mapped[str] = mapped_column(String(32), nullable=False, default=ReconciliationJobStatus.PENDING.value)
+    attempt_count: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    next_check_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, server_default=func.now())
+    last_checked_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    last_error: Mapped[str | None] = mapped_column(Text)
     tenant: Mapped[Tenant] = relationship()
     action_request: Mapped[ActionRequest] = relationship()
 

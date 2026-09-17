@@ -17,9 +17,24 @@ services:
         sync: false
       - key: FRONTEND_ORIGIN
         sync: false
-      # Security: production enforces REST bearer auth automatically (APP_ENV=production).
-      # Provide real signing keys via Render secret environment variables.
+      # Identity values must come from the selected OAuth/OIDC provider. The
+      # application rejects production defaults or missing verification config.
+      - key: MCP_AUTH_ISSUER
+        sync: false
+      - key: MCP_AUTH_AUDIENCE
+        sync: false
+      # Configure exactly one production verifier. Prefer MCP_AUTH_JWKS_URL or
+      # MCP_AUTH_PUBLIC_KEY for external identity; a symmetric secret is only a
+      # transitional option when its lifecycle is managed securely.
+      - key: MCP_AUTH_JWKS_URL
+        sync: false
+      - key: MCP_AUTH_PUBLIC_KEY
+        sync: false
       - key: MCP_AUTH_SECRET_KEY
         sync: false
       - key: WEBHOOK_SECRET
         sync: false
+      - key: DEV_TOKEN_ENABLED
+        value: "false"
+      - key: LOG_FORMAT
+        value: json

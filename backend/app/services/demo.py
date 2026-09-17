@@ -10,7 +10,7 @@ from app.db.models import (
     Delegation, DelegationStatus, Tool, Action, CapabilityStatus, Resource,
     ResourceStatus, ResourceSensitivity, RiskClassification, Policy, PolicyStatus,
     PolicyRule, PolicyEffect, ActionRequest, ApprovalRequest, ApprovalStatus, AuditEvent,
-    FinancialExecution, ExecutionState, DEFAULT_TENANT_ID
+    FinancialExecution, ExecutionState, DEFAULT_TENANT_ID, TenantRole
 )
 
 from app.config import settings
@@ -21,12 +21,17 @@ from app.services.gateway import GatewayService
 from app.services.approval import ApprovalService
 from app.execution import SandboxPaymentProvider, ExecutionStatus
 from app.financial import compute_payload_digest
+from app.services.authorization import grant_role
 
 
 TREASURY_TENANT_SLUG = "treasury-demo"
 TREASURY_TOOL_NAME = "treasury_wire_tool"
 TREASURY_AGENT_NAME = "TreasuryBot-v1"
 TREASURY_RESOURCE_KEY = "ACC-TREASURY-01"
+SUPPORT_TENANT_SLUG = "customer-remediation-demo"
+SUPPORT_TOOL_NAME = "support_billing_refund_tool"
+SUPPORT_AGENT_NAME = "SupportResolutionAgent-v1"
+SUPPORT_RESOURCE_KEY = "cus_demo_customer_0142"
 
 
 def _provision_treasury_environment(db) -> tuple:
@@ -141,6 +146,12 @@ def _provision_treasury_environment(db) -> tuple:
         ))
         db.flush()
 
+    # Demo identities mirror the product's separation of responsibilities:
+    # Alice requests actions; Bob may approve/reconcile but cannot request and
+    # resolve the same uncertain action.
+    grant_role(db, tenant_id=tenant.id, principal_id=approver.id, role=TenantRole.APPROVER)
+    grant_role(db, tenant_id=tenant.id, principal_id=approver.id, role=TenantRole.OPERATOR)
+
     db.commit()
     return tenant, requester, approver, agent, tool, action, resource, policy, rule
 
@@ -161,6 +172,133 @@ def treasury_demo_manifest(db) -> dict[str, Any]:
         "policy": {"id": str(policy.id), "name": policy.name, "version": policy.version},
         "default_amount": "25000.00",
         "default_currency": "USD",
+    }
+
+
+def _provision_customer_remediation_environment(db) -> tuple:
+    """Provision a sandbox support-refund workflow without external systems.
+
+    The records deliberately resemble a future Zendesk + billing integration,
+    but they are internal demo data only. The gateway receives the exact ticket,
+    payment, remedy, and recovery context that a real connector would bind.
+    """
+    tenant = db.scalar(select(Tenant).where(Tenant.slug == SUPPORT_TENANT_SLUG))
+    if tenant is None:
+        tenant = Tenant(id=uuid.uuid4(), name="Northstar SaaS Support", slug=SUPPORT_TENANT_SLUG)
+        db.add(tenant)
+        db.flush()
+
+    def get_or_create(model, filters, factory):
+        existing = db.scalar(select(model).where(*filters))
+        if existing is not None:
+            return existing
+        record = factory()
+        db.add(record)
+        db.flush()
+        return record
+
+    requester = get_or_create(
+        Principal,
+        [Principal.tenant_id == tenant.id, Principal.external_id == "support_case_owner"],
+        lambda: Principal(id=uuid.uuid4(), tenant_id=tenant.id, type=PrincipalType.HUMAN, name="Maya Patel", external_id="support_case_owner", status=PrincipalStatus.ACTIVE),
+    )
+    approver = get_or_create(
+        Principal,
+        [Principal.tenant_id == tenant.id, Principal.external_id == "support_lead"],
+        lambda: Principal(id=uuid.uuid4(), tenant_id=tenant.id, type=PrincipalType.HUMAN, name="Daniel Kim", external_id="support_lead", status=PrincipalStatus.ACTIVE),
+    )
+    agent = get_or_create(
+        Agent,
+        [Agent.tenant_id == tenant.id, Agent.name == SUPPORT_AGENT_NAME],
+        lambda: Agent(
+            id=uuid.uuid4(), tenant_id=tenant.id, name=SUPPORT_AGENT_NAME,
+            description="Proposes customer remedies from verified support context", owner_principal_id=requester.id,
+            purpose="Prepare safe customer refund and credit actions for review", version="1.0.0",
+            risk_classification=RiskClassification.HIGH, status=AgentStatus.ACTIVE,
+        ),
+    )
+    tool = get_or_create(
+        Tool,
+        [Tool.name == SUPPORT_TOOL_NAME],
+        lambda: Tool(id=uuid.uuid4(), tenant_id=tenant.id, name=SUPPORT_TOOL_NAME, description="Sandbox billing remedy connector", status=CapabilityStatus.ACTIVE),
+    )
+    action = get_or_create(
+        Action,
+        [Action.tenant_id == tenant.id, Action.tool_id == tool.id, Action.name == "issue_refund"],
+        lambda: Action(
+            id=uuid.uuid4(), tenant_id=tenant.id, tool_id=tool.id, name="issue_refund",
+            description="Refund a verified customer payment after governance review", risk_level=RiskClassification.HIGH, status=CapabilityStatus.ACTIVE,
+        ),
+    )
+    credit_action = get_or_create(
+        Action,
+        [Action.tenant_id == tenant.id, Action.tool_id == tool.id, Action.name == "issue_account_credit"],
+        lambda: Action(
+            id=uuid.uuid4(), tenant_id=tenant.id, tool_id=tool.id, name="issue_account_credit",
+            description="Apply a governed account credit after independent review", risk_level=RiskClassification.HIGH, status=CapabilityStatus.ACTIVE,
+        ),
+    )
+    resource = get_or_create(
+        Resource,
+        [Resource.tenant_id == tenant.id, Resource.resource_type == "customer_billing_account", Resource.resource_key == SUPPORT_RESOURCE_KEY],
+        lambda: Resource(
+            id=uuid.uuid4(), tenant_id=tenant.id, resource_type="customer_billing_account", resource_key=SUPPORT_RESOURCE_KEY,
+            sensitivity=ResourceSensitivity.HIGH, owner_reference="acct_demo_0142", status=ResourceStatus.ACTIVE,
+        ),
+    )
+    policy = get_or_create(
+        Policy,
+        [Policy.tenant_id == tenant.id, Policy.name == "Customer Refund Governance", Policy.version == 1],
+        lambda: Policy(
+            id=uuid.uuid4(), tenant_id=tenant.id, name="Customer Refund Governance",
+            description="Requires independent review before a support agent executes a customer refund.", version=1, priority=1, status=PolicyStatus.ACTIVE,
+        ),
+    )
+    rule = db.scalar(select(PolicyRule).where(PolicyRule.policy_id == policy.id, PolicyRule.action == "issue_refund", PolicyRule.resource_type == "customer_billing_account"))
+    if rule is None:
+        rule = PolicyRule(id=uuid.uuid4(), policy_id=policy.id, effect=PolicyEffect.ALLOW, action="issue_refund", resource_type="customer_billing_account", priority=1)
+        db.add(rule)
+        db.flush()
+    credit_rule = db.scalar(select(PolicyRule).where(PolicyRule.policy_id == policy.id, PolicyRule.action == "issue_account_credit", PolicyRule.resource_type == "customer_billing_account"))
+    if credit_rule is None:
+        db.add(PolicyRule(id=uuid.uuid4(), policy_id=policy.id, effect=PolicyEffect.ALLOW, action="issue_account_credit", resource_type="customer_billing_account", priority=1))
+        db.flush()
+    delegation = db.scalar(select(Delegation).where(Delegation.tenant_id == tenant.id, Delegation.principal_id == requester.id, Delegation.agent_id == agent.id, Delegation.scope == "issue_refund"))
+    if delegation is None:
+        db.add(Delegation(id=uuid.uuid4(), tenant_id=tenant.id, principal_id=requester.id, agent_id=agent.id, scope="issue_refund", status=DelegationStatus.ACTIVE, issued_at=datetime.now(timezone.utc)))
+        db.flush()
+    credit_delegation = db.scalar(select(Delegation).where(Delegation.tenant_id == tenant.id, Delegation.principal_id == requester.id, Delegation.agent_id == agent.id, Delegation.scope == "issue_account_credit"))
+    if credit_delegation is None:
+        db.add(Delegation(id=uuid.uuid4(), tenant_id=tenant.id, principal_id=requester.id, agent_id=agent.id, scope="issue_account_credit", status=DelegationStatus.ACTIVE, issued_at=datetime.now(timezone.utc)))
+        db.flush()
+    grant_role(db, tenant_id=tenant.id, principal_id=approver.id, role=TenantRole.APPROVER)
+    grant_role(db, tenant_id=tenant.id, principal_id=approver.id, role=TenantRole.OPERATOR)
+    db.commit()
+    return tenant, requester, approver, agent, tool, action, credit_action, resource, policy, rule
+
+
+def customer_remediation_demo_manifest(db) -> dict[str, Any]:
+    """Return the selected customer-refund pilot manifest for the product UI."""
+    tenant, requester, approver, agent, _tool, action, credit_action, resource, policy, _rule = _provision_customer_remediation_environment(db)
+    return {
+        "tenant_id": str(tenant.id),
+        "tenant_name": tenant.name,
+        "sandbox_only": True,
+        "requester": {"id": str(requester.id), "name": requester.name, "external_id": requester.external_id, "title": "Support Automation Owner"},
+        "approver": {"id": str(approver.id), "name": approver.name, "external_id": approver.external_id, "title": "Support Operations Lead"},
+        "agent": {"id": str(agent.id), "name": agent.name, "purpose": agent.purpose},
+        "action": {"id": str(action.id), "name": action.name, "risk_level": action.risk_level.value if hasattr(action.risk_level, "value") else str(action.risk_level)},
+        "actions": {
+            "refund": {"id": str(action.id), "name": action.name, "risk_level": action.risk_level.value if hasattr(action.risk_level, "value") else str(action.risk_level)},
+            "account_credit": {"id": str(credit_action.id), "name": credit_action.name, "risk_level": credit_action.risk_level.value if hasattr(credit_action.risk_level, "value") else str(credit_action.risk_level)},
+        },
+        "resource": {"id": str(resource.id), "resource_type": resource.resource_type, "resource_key": resource.resource_key, "sensitivity": resource.sensitivity.value if hasattr(resource.sensitivity, "value") else str(resource.sensitivity)},
+        "policy": {"id": str(policy.id), "name": policy.name, "version": policy.version},
+        "default_amount": "49.00",
+        "default_currency": "USD",
+        "ticket_id": "ZD-10482",
+        "payment_reference": "pi_demo_8J4K2",
+        "billing_reference": "inv_demo_0042",
     }
 
 

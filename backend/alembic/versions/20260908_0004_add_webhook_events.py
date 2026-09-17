@@ -10,7 +10,7 @@ import sqlalchemy as sa
 from sqlalchemy import inspect, text
 from sqlalchemy.dialects import postgresql
 
-from alembic import op
+from alembic import context, op
 
 revision: str = "20260908_0004"
 down_revision: str | None = "20260908_0003"
@@ -19,7 +19,14 @@ depends_on: str | Sequence[str] | None = None
 
 
 def upgrade() -> None:
+    # See revision 0003: revision 0001 renders current declarative metadata
+    # when Alembic is asked for offline SQL, so this guarded legacy operation
+    # must not inspect a mock connection or duplicate the rendered table.
+    if context.is_offline_mode():
+        return
     bind = op.get_bind()
+    if bind.dialect.name == "sqlite":
+        return
     inspector = inspect(bind)
     if "webhook_events" in inspector.get_table_names():
         return
@@ -56,6 +63,8 @@ def upgrade() -> None:
 
 
 def downgrade() -> None:
+    if context.is_offline_mode():
+        return
     bind = op.get_bind()
     inspector = inspect(bind)
     if "webhook_events" not in inspector.get_table_names():

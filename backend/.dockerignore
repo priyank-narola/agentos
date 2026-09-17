@@ -1,0 +1,12 @@
+.env
+.venv
+venv
+__pycache__
+*.py[cod]
+.pytest_cache
+*.db
+*.sqlite*
+*.log
+AGENTS.md
+CLAUDE.md
+_agentos_preview_backend.sh

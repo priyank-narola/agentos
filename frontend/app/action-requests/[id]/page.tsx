@@ -21,6 +21,7 @@ export default function ActionCaseFile({ params }: { params: Promise<{ id: strin
   const [audit, setAudit] = useState<TimelineEvent[]>([]);
   const [principals, setPrincipals] = useState<Principal[]>([]);
   const [error, setError] = useState<string | null>(null);
+  const [exporting, setExporting] = useState(false);
 
   useEffect(() => {
     params.then(({ id }) => {
@@ -38,7 +39,7 @@ export default function ActionCaseFile({ params }: { params: Promise<{ id: strin
             const detail = await api.observabilityActionRequest(id, requestData.tenant_id).catch(() => null);
             setObs(detail);
             const t = await api.timeline(requestData.tenant_id).catch(() => null);
-            setAudit(t ? t.events.filter((e) => e.action_request_id === id).sort((a, b) => (a.created_at ?? "").localeCompare(b.created_at ?? "")) : []);
+            setAudit(t ? t.events.filter((e) => e.action_request_id === id).sort((a, b) => (a.event_sequence ?? Number.MAX_SAFE_INTEGER) - (b.event_sequence ?? Number.MAX_SAFE_INTEGER) || (a.created_at ?? "").localeCompare(b.created_at ?? "")) : []);
           }
         })
         .catch((reason: Error) => setError(reason.message));
@@ -49,6 +50,25 @@ export default function ActionCaseFile({ params }: { params: Promise<{ id: strin
     const map = new Map(principals.map((p) => [p.id, p.name]));
     return (id?: string | null, name?: string | null) => name ?? (id ? (map.get(id) ?? shortId(id)) : "Unavailable");
   }, [principals]);
+
+  const downloadEvidence = async () => {
+    if (!request) return;
+    setError(null);
+    setExporting(true);
+    try {
+      const bundle = await api.actionEvidence(request.id);
+      const url = URL.createObjectURL(new Blob([JSON.stringify(bundle, null, 2)], { type: "application/json" }));
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = `action-evidence-${request.id}.json`;
+      link.click();
+      URL.revokeObjectURL(url);
+    } catch (reason) {
+      setError(reason instanceof Error ? `Unable to export evidence. ${reason.message}` : "Unable to export evidence.");
+    } finally {
+      setExporting(false);
+    }
+  };
 
   if (!request) {
     return (
@@ -169,6 +189,33 @@ export default function ActionCaseFile({ params }: { params: Promise<{ id: strin
         </section>
       </div>
 
+      {request.action_context && (
+        <section className="mt-6 rounded-card border border-hairline bg-surface p-6">
+          <div className="flex flex-wrap items-start justify-between gap-4">
+            <div>
+              <p className="eyebrow text-inkFaint">Business intent & recovery</p>
+              <h2 className="mt-1 text-base font-semibold tracking-tight text-ink">What will change, and how it can be corrected</h2>
+            </div>
+            <Status value={request.action_context.recovery_class} />
+          </div>
+          <p className="mt-4 max-w-3xl text-[15px] leading-7 text-inkSubtle">{request.action_context.summary}</p>
+          <div className="mt-5 grid gap-4 md:grid-cols-3">
+            <div className="rounded-card border border-hairline bg-surfaceMuted p-4">
+              <p className="text-[11px] uppercase tracking-wide text-inkFaint">Target system</p>
+              <p className="mt-1 text-sm font-semibold text-ink">{request.action_context.target_system}</p>
+            </div>
+            <div className="rounded-card border border-hairline bg-surfaceMuted p-4">
+              <p className="text-[11px] uppercase tracking-wide text-inkFaint">Before → proposed</p>
+              <p className="mt-1 text-xs leading-5 text-inkMuted">{JSON.stringify(request.action_context.before)} → {JSON.stringify(request.action_context.proposed_change)}</p>
+            </div>
+            <div className="rounded-card border border-hairline bg-surfaceMuted p-4">
+              <p className="text-[11px] uppercase tracking-wide text-inkFaint">Recovery plan</p>
+              <p className="mt-1 text-xs leading-5 text-inkMuted">{request.action_context.recovery_plan}</p>
+            </div>
+          </div>
+        </section>
+      )}
+
       {/* Governance chain + evidence */}
       <div className="mt-6 grid gap-6 xl:grid-cols-[0.9fr_1.1fr]">
         <section className="h-fit rounded-card border border-hairline bg-surface p-6">
@@ -209,12 +256,25 @@ export default function ActionCaseFile({ params }: { params: Promise<{ id: strin
               <div>
                 <p className="text-xs text-inkFaint">Execution</p>
                 <p className="mt-1 text-[15px] font-semibold text-ink">{executionStatus}</p>
-                {obs?.execution?.provider_transaction_id && (
-                  <p className="mt-2 font-mono text-[11px] text-inkSubtle">{obs.execution.provider_transaction_id}</p>
+                {request.execution_receipt.provider_reference && (
+                  <p className="mt-2 font-mono text-[11px] text-inkSubtle">{request.execution_receipt.provider_reference}</p>
                 )}
               </div>
             </div>
           </section>
+
+          <Disclosure title="Execution receipt & recovery posture">
+            <KeyValueList
+              items={[
+                { label: "Provider evidence", value: request.execution_receipt.evidence_status },
+                { label: "Provider", value: request.execution_receipt.provider_name ?? "No provider execution recorded" },
+                { label: "Provider reference", value: request.execution_receipt.provider_reference ?? "—", mono: true },
+                { label: "Recorded", value: request.execution_receipt.recorded_at ? formatDateTime(request.execution_receipt.recorded_at) : "—" },
+                { label: "Recovery posture", value: request.execution_receipt.recovery_status },
+                { label: "Recovery plan", value: request.execution_receipt.recovery_plan ?? "No recovery plan was declared." },
+              ]}
+            />
+          </Disclosure>
 
           {/* Evidence disclosures */}
           <Disclosure title="Risk evidence & factors">
@@ -259,7 +319,7 @@ export default function ActionCaseFile({ params }: { params: Promise<{ id: strin
               <ol className="space-y-0.5">
                 {audit.map((event) => (
                   <li key={event.id} className="flex flex-wrap items-baseline justify-between gap-3 border-b border-hairline py-2 text-sm last:border-0">
-                    <span className="font-medium text-ink">{event.event_type}</span>
+                    <span className="font-medium text-ink">{event.event_sequence ? `${event.event_sequence}. ` : ""}{event.event_type}</span>
                     <span className="text-xs text-inkFaint">{formatDateTime(event.created_at)}</span>
                   </li>
                 ))}
@@ -284,6 +344,9 @@ export default function ActionCaseFile({ params }: { params: Promise<{ id: strin
                 Open in observability →
               </Link>
             )}
+            <button type="button" onClick={downloadEvidence} disabled={exporting} className="rounded-control border border-hairline bg-surface px-3 py-1.5 text-[13px] font-medium text-inkMuted hover:bg-surfaceMuted disabled:opacity-50">
+              {exporting ? "Preparing evidence…" : "Download evidence JSON"}
+            </button>
           </div>
         </div>
       </div>

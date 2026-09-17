@@ -2,7 +2,8 @@ from __future__ import annotations
 
 from datetime import datetime
 from decimal import Decimal
-from typing import Any
+from enum import Enum
+from typing import Any, Literal
 from uuid import UUID
 
 from pydantic import AliasChoices, BaseModel, ConfigDict, Field, model_validator
@@ -21,6 +22,7 @@ from app.db.models import (
     ResourceSensitivity,
     ResourceStatus,
     RiskClassification,
+    TenantRole,
 )
 
 
@@ -36,6 +38,30 @@ class PrincipalSchema(DomainSchema):
     status: PrincipalStatus
     created_at: datetime
     updated_at: datetime
+
+
+class PrincipalRoleSchema(DomainSchema):
+    id: UUID
+    tenant_id: UUID
+    principal_id: UUID
+    role: TenantRole
+    granted_by_principal_id: UUID | None = None
+    created_at: datetime
+    updated_at: datetime
+
+
+class PrincipalRoleGrant(BaseModel):
+    """An administrator grants one tenant-scoped product role."""
+
+    actor_principal_id: UUID
+    principal_id: UUID
+    role: TenantRole
+
+
+class PrincipalRoleRevoke(BaseModel):
+    """An administrator removes one existing tenant-scoped role grant."""
+
+    actor_principal_id: UUID
 
 
 class PrincipalCreate(BaseModel):
@@ -182,9 +208,18 @@ class PolicySchema(DomainSchema):
 class PolicyCreate(BaseModel):
     name: str = Field(min_length=1, max_length=200)
     description: str | None = None
+    # Policies always enter through the draft lifecycle.  A caller must add
+    # rules and explicitly publish; accepting ACTIVE here would allow a live
+    # authorization change to bypass that control.
     status: PolicyStatus = PolicyStatus.DRAFT
     version: int = Field(ge=1)
     priority: int = Field(ge=0)
+
+    @model_validator(mode="after")
+    def require_draft_status(self) -> "PolicyCreate":
+        if self.status != PolicyStatus.DRAFT:
+            raise ValueError("New policies must be created as DRAFT and published explicitly")
+        return self
 
 
 class PolicyRuleCreate(BaseModel):
@@ -247,14 +282,83 @@ class ActionRequestSchema(DomainSchema):
     idempotency_key: str
 
 
-class GatewayRequestCreate(BaseModel):
+class RecoveryClass(str, Enum):
+    """How the business action can be made safe after execution."""
+
+    REVERSIBLE = "REVERSIBLE"
+    COMPENSATABLE = "COMPENSATABLE"
+    IRREVERSIBLE = "IRREVERSIBLE"
+
+
+class ActionContext(BaseModel):
+    """Business evidence captured and bound to a governed action.
+
+    This is deliberately separate from provider-facing parameters: it tells a
+    reviewer what will change, why, and what recovery option remains if the
+    action succeeds but later needs to be corrected.
+    """
+
+    model_config = ConfigDict(extra="forbid")
+
+    summary: str = Field(min_length=1, max_length=500)
+    target_system: str = Field(min_length=1, max_length=100)
+    before: dict[str, Any] = Field(default_factory=dict)
+    proposed_change: dict[str, Any] = Field(default_factory=dict)
+    recovery_class: RecoveryClass
+    recovery_plan: str = Field(min_length=1, max_length=500)
+
+
+class ExecutionReceipt(BaseModel):
+    """Authoritative provider evidence plus the declared recovery posture."""
+
+    status: str
+    evidence_status: str
+    provider_name: str | None = None
+    provider_reference: str | None = None
+    provider_request_id: str | None = None
+    payload_digest: str | None = None
+    error_code: str | None = None
+    error_message: str | None = None
+    recorded_at: datetime | None = None
+    recovery_status: str
+    recovery_plan: str | None = None
+
+
+class ActionPreflightRequest(BaseModel):
+    """A non-persistent request to evaluate a proposed governed action."""
+
     model_config = ConfigDict(extra="forbid")
     principal_id: UUID
     agent_id: UUID
     action_id: UUID
     resource_id: UUID
     parameters: dict[str, Any] = Field(default_factory=dict)
+    action_context: ActionContext | None = None
+
+
+class GatewayRequestCreate(ActionPreflightRequest):
     idempotency_key: str = Field(min_length=1, max_length=200)
+
+
+class ActionPreflightResponse(BaseModel):
+    """Decision preview that never creates, approves, or executes an action."""
+
+    decision: str
+    reason_code: str
+    reason: str
+    risk_level: RiskClassification | None = None
+    risk_score: int | None = Field(default=None, ge=0, le=100)
+    risk_classification: str | None = None
+    risk_factors: list[dict[str, Any]] = Field(default_factory=list)
+    risk_engine_version: str | None = None
+    approval_required: bool
+    matched_policies: list[MatchedPolicyRule] = Field(default_factory=list)
+    connector_provider: str
+    execution_plan: str
+    payload_digest: str
+    action_context: ActionContext | None = None
+    evaluated_at: datetime
+    warnings: list[str] = Field(default_factory=list)
 
 
 class GatewayResponse(BaseModel):
@@ -270,6 +374,8 @@ class GatewayResponse(BaseModel):
     risk_engine_version: str | None = None
     approval_required: bool
     execution_status: str
+    execution_receipt: ExecutionReceipt
+    action_context: ActionContext | None = None
     requested_at: datetime
     decided_at: datetime
 
@@ -289,6 +395,7 @@ class ActionRequestDetailSchema(BaseModel):
     resource_type: str
     resource_key: str
     parameters: dict[str, Any]
+    action_context: ActionContext | None = None
     status: ActionRequestStatus
     idempotency_key: str
     requested_at: datetime
@@ -301,6 +408,7 @@ class ActionRequestDetailSchema(BaseModel):
     risk_factors: list[dict[str, Any]] = Field(default_factory=list)
     risk_engine_version: str | None = None
     execution_status: str = "NOT_EXECUTED"
+    execution_receipt: ExecutionReceipt
     decided_at: datetime | None = None
 
 
@@ -351,6 +459,7 @@ class ApprovalDetailSchema(BaseModel):
     resource_type: str
     resource_key: str
     parameters: dict[str, Any]
+    action_context: ActionContext | None = None
     requested_by: UUID
     status: ApprovalStatus
     reason: str
@@ -360,10 +469,77 @@ class ApprovalDetailSchema(BaseModel):
     policy_id: UUID | None = None
     policy_version: int | None = None
     execution_status: str = "NOT_EXECUTED"
+    execution_receipt: ExecutionReceipt
     decided_by: UUID | None = None
     decided_at: datetime | None = None
     requested_at: datetime
     expires_at: datetime
+
+
+class EvidenceApproval(BaseModel):
+    id: UUID
+    status: ApprovalStatus
+    requested_by: UUID
+    decided_by: UUID | None = None
+    decided_at: datetime | None = None
+    expires_at: datetime | None = None
+
+
+class AuditEvidenceEvent(BaseModel):
+    id: UUID
+    event_type: str
+    sequence: int | None = None
+    occurred_at: datetime
+    event_data: dict[str, Any]
+
+
+class EvidenceIntegrity(BaseModel):
+    """Digest metadata for the stable contents of a portable evidence export."""
+
+    algorithm: Literal["SHA-256"] = "SHA-256"
+    digest: str
+    excluded_fields: list[str] = ["exported_at", "integrity"]
+
+
+class ActionEvidenceBundle(BaseModel):
+    """Portable, tenant-scoped evidence record for one governed action."""
+
+    evidence_version: str = "1.0"
+    exported_at: datetime
+    action_request: ActionRequestDetailSchema
+    approval: EvidenceApproval | None = None
+    execution_receipt: ExecutionReceipt
+    audit_events: list[AuditEvidenceEvent]
+    integrity: EvidenceIntegrity
+
+
+class ReconciliationCheckRequest(BaseModel):
+    """Independent operator identity for a reconciliation status check."""
+
+    actor_principal_id: UUID
+
+
+class ReconciliationCase(BaseModel):
+    """An execution whose provider outcome still needs verified resolution."""
+
+    action_request_id: UUID
+    requester_principal_id: UUID
+    action_name: str
+    resource_key: str
+    execution_state: str
+    provider_name: str
+    provider_reference: str
+    provider_request_id: str
+    error_code: str | None = None
+    error_message: str | None = None
+    requested_at: datetime
+    updated_at: datetime
+
+
+class ReconciliationResult(ReconciliationCase):
+    previous_state: str
+    observed_provider_status: str
+    reconciled_at: datetime
 
 
 class ApprovalActionRequest(BaseModel):

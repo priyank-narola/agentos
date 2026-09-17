@@ -1,6 +1,6 @@
 from uuid import UUID
 
-from sqlalchemy import or_, select
+from sqlalchemy import func, or_, select
 from sqlalchemy.orm import Session, selectinload
 
 from app.db.models import DEFAULT_TENANT_ID, Policy, PolicyRule
@@ -36,3 +36,21 @@ class PolicyRepository(RegistryRepository):
 
     def get_rule(self, rule_id: UUID) -> PolicyRule | None:
         return self.db.get(PolicyRule, rule_id)
+
+    def latest_version(self, name: str, tenant_id: UUID | None = None) -> int | None:
+        stmt = select(func.max(Policy.version)).where(Policy.name == name)
+        if tenant_id is not None:
+            stmt = stmt.where(Policy.tenant_id == tenant_id)
+        return self.db.scalar(stmt)
+
+    def get_policy_for_update(self, policy_id: UUID, tenant_id: UUID | None = None) -> Policy | None:
+        stmt = select(Policy).options(selectinload(Policy.rules)).where(Policy.id == policy_id).with_for_update()
+        if tenant_id is not None:
+            stmt = stmt.where(Policy.tenant_id == tenant_id)
+        return self.db.scalar(stmt)
+
+    def active_versions_for_update(self, name: str, tenant_id: UUID | None = None) -> list[Policy]:
+        stmt = select(Policy).where(Policy.name == name, Policy.status == "ACTIVE").with_for_update()
+        if tenant_id is not None:
+            stmt = stmt.where(Policy.tenant_id == tenant_id)
+        return list(self.db.scalars(stmt).all())

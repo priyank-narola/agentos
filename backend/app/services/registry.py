@@ -58,7 +58,10 @@ class RegistryService:
         record = self.get_agent(record_id, tenant_id=tenant_id)
         if record is None:
             return None
-        for key, value in payload.model_dump(exclude_unset=True).items():
+        changes = payload.model_dump(exclude_unset=True)
+        if "status" in changes:
+            raise RegistryValidationError("Use the dedicated activate, suspend, or retire lifecycle operation to change an agent status")
+        for key, value in changes.items():
             setattr(record, key, value)
         return self.repository.save(record)
 
@@ -66,6 +69,16 @@ class RegistryService:
         record = self.get_agent(record_id, tenant_id=tenant_id)
         if record is None:
             return None
+        if record.status == status:
+            return record
+        if record.status == AgentStatus.RETIRED:
+            raise RegistryValidationError("A retired agent cannot be reactivated or changed")
+        allowed_transitions = {
+            AgentStatus.ACTIVE: {AgentStatus.SUSPENDED, AgentStatus.RETIRED},
+            AgentStatus.SUSPENDED: {AgentStatus.ACTIVE, AgentStatus.RETIRED},
+        }
+        if status not in allowed_transitions.get(record.status, set()):
+            raise RegistryValidationError(f"Cannot change agent status from {record.status} to {status}")
         record.status = status
         return self.repository.save(record)
 

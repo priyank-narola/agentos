@@ -46,6 +46,7 @@ class ObservabilityService:
                 "actor_type": e.actor_type.value if hasattr(e.actor_type, "value") else str(e.actor_type),
                 "actor_id": str(e.actor_id) if e.actor_id else None,
                 "action_request_id": str(e.action_request_id) if e.action_request_id else None,
+                "event_sequence": e.event_sequence,
                 "event_data": e.event_data,
                 "created_at": e.created_at.isoformat() if e.created_at else None
             })
@@ -387,7 +388,7 @@ class ObservabilityService:
 
 
         for req in action_requests:
-            events = sorted(req.audit_events, key=lambda x: x.created_at if x.created_at else datetime.min.replace(tzinfo=timezone.utc))
+            events = sorted(req.audit_events, key=lambda x: (x.event_sequence is None, x.event_sequence or 0, x.created_at or datetime.min.replace(tzinfo=timezone.utc), str(x.id)))
 
             # 1. Check Missing Audit Event
             if not events:

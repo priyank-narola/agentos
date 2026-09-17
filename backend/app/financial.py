@@ -27,7 +27,14 @@ FORBIDDEN_FINANCIAL_KEYS = {
     "authorization_override",
     "execution_status",
     "decided_by",
+    "_action_context",
 }
+
+# Reserved server-side envelope key. It carries the human-readable business
+# context that was approved alongside an action's executable parameters. A
+# caller must use the typed `action_context` field on GatewayRequestCreate;
+# allowing this key directly inside parameters would bypass that validation.
+ACTION_CONTEXT_PARAMETER_KEY = "_action_context"
 
 
 class FinancialValidationError(ValueError):
@@ -78,6 +85,75 @@ class WireTransferContract(BaseModel):
         return cleaned
 
 
+class CustomerRefundContract(BaseModel):
+    """Minimum provider-facing fields for the selected refund pilot action."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    ticket_id: str = Field(min_length=1, max_length=200)
+    payment_reference: str = Field(min_length=1, max_length=200)
+    customer_account_id: str = Field(min_length=1, max_length=200)
+    amount: Decimal = Field(gt=0)
+    amount_minor: int = Field(gt=0)
+    currency: str = Field(min_length=3, max_length=3)
+    remedy: str = Field(default="refund", pattern="^refund$")
+    reason: str = Field(min_length=1, max_length=500)
+    transaction_reference: str = Field(min_length=1, max_length=200)
+
+    @field_validator("currency")
+    @classmethod
+    def validate_currency(cls, value: str) -> str:
+        currency = value.strip().upper()
+        if currency not in SUPPORTED_CURRENCIES:
+            raise ValueError(f"Unsupported currency '{value}'. Supported: {sorted(SUPPORTED_CURRENCIES)}")
+        return currency
+
+    @field_validator("ticket_id", "payment_reference", "customer_account_id", "reason", "transaction_reference")
+    @classmethod
+    def validate_non_empty_str(cls, value: str) -> str:
+        cleaned = value.strip()
+        if not cleaned:
+            raise ValueError("Field cannot be empty or whitespace only")
+        return cleaned
+
+
+class CustomerAccountCreditContract(BaseModel):
+    """Minimum provider-facing fields for a sandbox account-credit remedy.
+
+    A credit is deliberately a separate action contract from a refund. A
+    payment reference is not silently repurposed as an account balance change,
+    and a future billing connector must opt in to this action explicitly.
+    """
+
+    model_config = ConfigDict(extra="forbid")
+
+    ticket_id: str = Field(min_length=1, max_length=200)
+    billing_reference: str = Field(min_length=1, max_length=200)
+    customer_account_id: str = Field(min_length=1, max_length=200)
+    amount: Decimal = Field(gt=0)
+    amount_minor: int = Field(gt=0)
+    currency: str = Field(min_length=3, max_length=3)
+    remedy: str = Field(default="account_credit", pattern="^account_credit$")
+    reason: str = Field(min_length=1, max_length=500)
+    transaction_reference: str = Field(min_length=1, max_length=200)
+
+    @field_validator("currency")
+    @classmethod
+    def validate_currency(cls, value: str) -> str:
+        currency = value.strip().upper()
+        if currency not in SUPPORTED_CURRENCIES:
+            raise ValueError(f"Unsupported currency '{value}'. Supported: {sorted(SUPPORTED_CURRENCIES)}")
+        return currency
+
+    @field_validator("ticket_id", "billing_reference", "customer_account_id", "reason", "transaction_reference")
+    @classmethod
+    def validate_non_empty_str(cls, value: str) -> str:
+        cleaned = value.strip()
+        if not cleaned:
+            raise ValueError("Field cannot be empty or whitespace only")
+        return cleaned
+
+
 def compute_payload_digest(parameters: dict[str, Any]) -> str:
     """
     Compute a deterministic SHA-256 digest over canonical JSON parameter payload.
@@ -85,6 +161,15 @@ def compute_payload_digest(parameters: dict[str, Any]) -> str:
     """
     canonical_json = json.dumps(parameters, sort_keys=True, separators=(",", ":"))
     return hashlib.sha256(canonical_json.encode("utf-8")).hexdigest()
+
+
+def executable_parameters(parameters: dict[str, Any]) -> dict[str, Any]:
+    """Return only the provider-facing portion of a governed action payload.
+
+    The action context is intentionally included in the digest and audit record,
+    but is not sent to a provider as if it were a provider-native field.
+    """
+    return {key: value for key, value in parameters.items() if key != ACTION_CONTEXT_PARAMETER_KEY}
 
 
 def validate_financial_action_parameters(action_name: str, parameters: dict[str, Any]) -> tuple[dict[str, Any], str]:
@@ -97,16 +182,24 @@ def validate_financial_action_parameters(action_name: str, parameters: dict[str,
     if found_forbidden:
         raise FinancialValidationError(f"Forbidden authorization/identity override keys in parameters: {found_forbidden}")
 
-    # 2. Validate action contract if wire_transfer
-    if action_name == "wire_transfer":
+    # 2. Validate strict known action contracts before any policy evaluation or
+    # approval request is created. This prevents reviewers seeing malformed
+    # provider work that would only fail after approval.
+    contracts = {
+        "wire_transfer": WireTransferContract,
+        "issue_refund": CustomerRefundContract,
+        "issue_account_credit": CustomerAccountCreditContract,
+    }
+    contract = contracts.get(action_name)
+    if contract is not None:
         try:
-            validated_model = WireTransferContract(**parameters)
+            validated_model = contract(**parameters)
             # Dump to JSON-serializable dict with Decimal as string/float
             clean_dict = json.loads(validated_model.model_dump_json(exclude_none=True))
             digest = compute_payload_digest(clean_dict)
             return clean_dict, digest
         except Exception as e:
-            raise FinancialValidationError(f"Invalid wire_transfer parameters: {str(e)}") from e
+            raise FinancialValidationError(f"Invalid {action_name} parameters: {str(e)}") from e
 
     # Fallback for generic actions
     clean_dict = {k: v for k, v in parameters.items() if k not in FORBIDDEN_FINANCIAL_KEYS}

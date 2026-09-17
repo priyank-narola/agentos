@@ -366,7 +366,7 @@ class ScenarioEngine:
         if not req:
             return None
 
-        events = sorted(req.audit_events, key=lambda x: x.created_at if x.created_at else datetime.min.replace(tzinfo=timezone.utc))
+        events = sorted(req.audit_events, key=lambda x: (x.event_sequence is None, x.event_sequence or 0, x.created_at or datetime.min.replace(tzinfo=timezone.utc), str(x.id)))
 
         steps = [
             {"step": 1, "phase": "REQUEST", "event_type": "ACTION_REQUEST_RECEIVED", "result": "SUCCESS"},

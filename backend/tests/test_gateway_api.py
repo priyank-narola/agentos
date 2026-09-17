@@ -62,6 +62,17 @@ def body(ids, key=None, **extra):
     return {"principal_id": ids["principal_id"], "agent_id": ids["agent_id"], "action_id": ids["action_id"], "resource_id": ids["resource_id"], "parameters": {}, "idempotency_key": key or str(uuid4()), **extra}
 
 
+def action_context(summary="Apply a goodwill credit after a delayed shipment"):
+    return {
+        "summary": summary,
+        "target_system": "support-platform",
+        "before": {"account_credit": "0.00"},
+        "proposed_change": {"account_credit": "25.00"},
+        "recovery_class": "COMPENSATABLE",
+        "recovery_plan": "Record an offsetting debit with the original case reference.",
+    }
+
+
 def test_allow_persists_separate_decision_and_does_not_execute() -> None:
     ids = fixture_records(); add_policy(ids)
     response = client.post("/api/v1/action-requests", json=body(ids, "allow-key"))
@@ -99,6 +110,48 @@ def test_high_risk_allow_requires_approval_without_execution() -> None:
     assert data["execution_status"] == "NOT_EXECUTED"
 
 
+def test_action_preflight_uses_gateway_controls_without_persisting_or_executing() -> None:
+    ids = fixture_records(); add_policy(ids)
+    preview = client.post("/api/v1/action-preflight", json={
+        "principal_id": ids["principal_id"],
+        "agent_id": ids["agent_id"],
+        "action_id": ids["action_id"],
+        "resource_id": ids["resource_id"],
+        "parameters": {},
+        "action_context": action_context(),
+    })
+
+    assert preview.status_code == 200
+    data = preview.json()
+    assert data["decision"] == "ALLOW"
+    assert data["execution_plan"] == "READY_TO_SUBMIT"
+    assert data["connector_provider"] == "SandboxPaymentProvider"
+    assert data["action_context"]["summary"] == "Apply a goodwill credit after a delayed shipment"
+    assert len(data["payload_digest"]) == 64
+    assert any("non-persistent" in warning for warning in data["warnings"])
+    with TestingSession() as session:
+        assert session.scalar(select(func.count()).select_from(ActionRequest)) == 0
+        assert session.scalar(select(func.count()).select_from(Decision)) == 0
+        assert session.scalar(select(func.count()).select_from(AuditEvent)) == 0
+
+
+def test_high_risk_preflight_requires_approval_but_never_creates_one() -> None:
+    ids = fixture_records(risk=RiskClassification.HIGH); add_policy(ids)
+    preview = client.post("/api/v1/action-preflight", json={
+        "principal_id": ids["principal_id"],
+        "agent_id": ids["agent_id"],
+        "action_id": ids["action_id"],
+        "resource_id": ids["resource_id"],
+        "parameters": {},
+    })
+
+    assert preview.status_code == 200
+    assert preview.json()["decision"] == "REQUIRE_APPROVAL"
+    assert preview.json()["execution_plan"] == "HUMAN_APPROVAL_AND_REVALIDATION_REQUIRED"
+    with TestingSession() as session:
+        assert session.scalar(select(func.count()).select_from(ActionRequest)) == 0
+
+
 def test_action_derived_tool_cannot_be_supplied_or_influenced() -> None:
     ids = fixture_records(); add_policy(ids)
     rejected = client.post("/api/v1/action-requests", json={**body(ids, "caller-tool"), "tool_id": ids["tool_id"]})
@@ -129,6 +182,63 @@ def test_idempotency_retry_and_conflict_prevent_duplicates() -> None:
         assert session.scalar(select(func.count()).select_from(ActionRequest).where(ActionRequest.idempotency_key == "same-key")) == 1
         assert session.scalar(select(func.count()).select_from(Decision).join(ActionRequest).where(ActionRequest.idempotency_key == "same-key")) == 1
         assert session.scalar(select(func.count()).select_from(AuditEvent).join(ActionRequest).where(ActionRequest.idempotency_key == "same-key", AuditEvent.event_type == "RISK_EVALUATED")) == 1
+
+
+def test_action_context_is_typed_hidden_from_provider_parameters_and_bound_to_idempotency() -> None:
+    ids = fixture_records(); add_policy(ids)
+    payload = body(ids, "context-key", action_context=action_context())
+
+    first = client.post("/api/v1/action-requests", json=payload)
+    assert first.status_code == 201
+    assert first.json()["action_context"]["recovery_class"] == "COMPENSATABLE"
+    assert first.json()["execution_receipt"]["evidence_status"] == "NOT_RECORDED"
+    assert first.json()["execution_receipt"]["recovery_status"] == "NOT_STARTED"
+
+    detail = client.get(f"/api/v1/action-requests/{first.json()['action_request_id']}")
+    assert detail.status_code == 200
+    assert detail.json()["action_context"]["summary"] == payload["action_context"]["summary"]
+    assert "_action_context" not in detail.json()["parameters"]
+    assert detail.json()["execution_receipt"]["recovery_plan"] == payload["action_context"]["recovery_plan"]
+
+    retry = client.post("/api/v1/action-requests", json=payload)
+    assert retry.status_code == 201
+    assert retry.json()["action_request_id"] == first.json()["action_request_id"]
+
+    changed = client.post("/api/v1/action-requests", json={**payload, "action_context": action_context("Apply a larger credit")})
+    assert changed.status_code == 409
+
+
+def test_action_context_cannot_be_smuggled_through_provider_parameters() -> None:
+    ids = fixture_records(); add_policy(ids)
+    response = client.post("/api/v1/action-requests", json=body(ids, "context-smuggle", parameters={"_action_context": action_context()}))
+    assert response.status_code == 409
+
+
+def test_evidence_export_contains_portable_governance_proof_without_internal_context_key() -> None:
+    ids = fixture_records(); add_policy(ids)
+    created = client.post("/api/v1/action-requests", json=body(ids, "evidence-key", action_context=action_context()))
+    assert created.status_code == 201
+
+    exported = client.get(f"/api/v1/action-requests/{created.json()['action_request_id']}/evidence")
+    assert exported.status_code == 200
+    evidence = exported.json()
+    assert evidence["evidence_version"] == "1.0"
+    assert evidence["action_request"]["id"] == created.json()["action_request_id"]
+    assert evidence["action_request"]["action_context"]["summary"] == "Apply a goodwill credit after a delayed shipment"
+    assert "_action_context" not in evidence["action_request"]["parameters"]
+    assert evidence["execution_receipt"]["evidence_status"] == "NOT_RECORDED"
+    event_types = {event["event_type"] for event in evidence["audit_events"]}
+    assert {"ACTION_REQUEST_RECEIVED", "ACTION_CONTEXT_CAPTURED", "POLICY_EVALUATED"}.issubset(event_types)
+    assert [event["sequence"] for event in evidence["audit_events"]] == list(range(1, len(evidence["audit_events"]) + 1))
+    assert evidence["integrity"]["algorithm"] == "SHA-256"
+    assert len(evidence["integrity"]["digest"]) == 64
+
+    from app.schemas import ActionEvidenceBundle
+    from app.services.evidence_integrity import verify_evidence_integrity
+
+    assert verify_evidence_integrity(ActionEvidenceBundle.model_validate(evidence))
+    evidence["action_request"]["parameters"]["amount"] = 999
+    assert not verify_evidence_integrity(ActionEvidenceBundle.model_validate(evidence))
 
 
 def test_audit_events_are_appended_for_evaluation_outcome() -> None:
