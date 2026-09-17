@@ -142,6 +142,13 @@ def test_rest_auth_cannot_be_disabled_outside_development(monkeypatch, environme
     assert auth_deps.is_rest_auth_required() is True
 
 
+@pytest.mark.parametrize("environment", ["staging", "production"])
+def test_hosted_rest_auth_never_uses_the_local_development_secret(monkeypatch, environment):
+    """A known demo key must not become a hosted-environment verifier."""
+    monkeypatch.setattr(rest_deps, "settings", Settings(app_env=environment))
+    assert rest_deps.rest_signing_secret() is None
+
+
 def test_invalid_token_is_rejected(db_session):
     _provision(db_session, "ta")
     response = client.get("/api/v1/action-requests", headers={"Authorization": "Bearer not.a.token"})

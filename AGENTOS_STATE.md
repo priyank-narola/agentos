@@ -42,7 +42,7 @@ verification and an exact commit or PR reference.
   REST-authentication bypass: every environment other than `development` now
   requires REST authentication regardless of `REST_AUTH_REQUIRED`.
 - On the review branch, the complete backend suite has since been re-run with
-  `389 passed, 8 skipped, 1 warning` (no failures). Frontend typecheck, lint,
+  `391 passed, 8 skipped, 1 warning` (no failures). Frontend typecheck, lint,
   and the 21-route production build also pass. These are review-branch
   verification facts, not evidence of customer validation or authorization to
   merge/deploy.
@@ -51,7 +51,7 @@ verification and an exact commit or PR reference.
 The historical/pending-work backlog sprint is closed for engineering. See `docs/OLD_WORK_BACKLOG_CLOSURE_REPORT.md` for the authoritative W1–W18 audit.
 - Migration head: `20260909_0005` (adds FK on `audit_events.actor_id`; verified fresh/existing on PG16).
 - Migration `0001` retained as historical baseline snapshot by documented decision (`docs/migration-0001-adr.md`).
-- REST control-plane authentication enforced in any non-development deployment or when `REST_AUTH_REQUIRED=true`; development demo may run unauthenticated (explicit operator choice). Dev-token issuance is disabled by default and is available only with the `DEV_TOKEN_ENABLED=true` opt-in in `development`; staging and production fail closed.
+- REST control-plane authentication enforced in any non-development deployment or when `REST_AUTH_REQUIRED=true`; development demo may run unauthenticated (explicit operator choice). The local REST HMAC development secret is available only in `development`; hosted environments require an explicitly configured verifier and otherwise fail closed. Dev-token issuance is disabled by default and is available only with the `DEV_TOKEN_ENABLED=true` opt-in in `development`; staging and production fail closed.
 - Tenant scoping implemented for gateway, approvals, observability, registry catalog, and policy catalog (server-derived; default-tenant policies are a documented shared baseline).
 - Webhook route with durable dedup; scenario harness executions persisted to the ledger; CISO demo repeatable; bounded rate limiting; OAuth protected-resource metadata; SSE deprecation decision explicit.
 - Intelligence Engine V1/V2: risk scoring, intent analysis, anomaly detection, threat classification, policy recommendation (advisory only), model provider abstraction, knowledge base (49 entries), benchmark framework, adversarial evaluation.
@@ -102,7 +102,7 @@ Next.js (frontend) · FastAPI (backend) · PostgreSQL 16 (authoritative) · SQLA
 
 ## 7. Test Truth
 
-- Review branch: backend suite: **389 passed / 8 skipped / 1 warning / 0
+- Review branch: backend suite: **391 passed / 8 skipped / 1 warning / 0
   failed**. The remaining warning is Starlette's upstream `BlockingPortal`
   deprecation; test code no longer uses deprecated `datetime.utcnow()`.
 - Frontend: `npm run typecheck`, `npm run lint`, and `npm run build` PASS; the
@@ -126,6 +126,7 @@ Next.js (frontend) · FastAPI (backend) · PostgreSQL 16 (authoritative) · SQLA
 - Webhook security: HMAC-SHA256 signature verification, timestamp replay protection; production requires `WEBHOOK_SECRET` env var (P1-02 fix).
 - CORS: restricted to `Authorization`, `Content-Type`, `X-Tenant-ID`, `X-Request-ID`, `X-Idempotency-Key` headers (P2-08 fix).
 - Rate limiting: 429 responses include `Retry-After` header (P2-09 fix).
+- Hosted REST verifier: staging and production never fall back to the known local development HMAC secret; an explicit HMAC/public-key/JWKS verifier is required or requests fail closed.
 - Dev-token endpoint: disabled by default; requires `DEV_TOKEN_ENABLED=true` to opt in **only in development**. Staging and production reject configuration and endpoint access (P1-04 hardening).
 - Intelligence boundary: model provider output is advisory only (`is_advisory=True`); model cannot authorize, execute, or approve; provider failure → deterministic fallback (P1-05 fix: failures now logged).
 - Audit trail: `audit_events.actor_id` now has FK → `principals.id` with SET NULL on delete (P2-10 fix, migration 0005).

@@ -52,10 +52,15 @@ def _env_flag(name: str) -> bool | None:
 
 
 def rest_signing_secret() -> str | None:
-    """HMAC secret for REST/MCP token verification, or None (fail closed)."""
+    """HMAC secret for REST/MCP token verification, or None (fail closed).
+
+    The local development secret is intentionally unavailable in staging and
+    production. Hosted environments must explicitly configure an HMAC secret,
+    public key, or JWKS verifier rather than inheriting a known demo key.
+    """
     if settings.mcp_auth_secret_key:
         return settings.mcp_auth_secret_key
-    if settings.app_env != "production":
+    if settings.app_env == "development":
         return REST_DEV_SECRET
     return None
 
