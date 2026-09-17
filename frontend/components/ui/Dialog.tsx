@@ -11,6 +11,8 @@ function CloseIcon() {
   );
 }
 
+const focusableSelector = 'button:not([disabled]), [href], input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])';
+
 /**
  * Accessible modal dialog foundation: focus management, Escape to close,
  * backdrop dismissal, scroll lock, and ARIA wiring.
@@ -43,7 +45,7 @@ export function Dialog({
     if (!open) return;
     const previouslyFocused = document.activeElement instanceof HTMLElement ? document.activeElement : null;
     const panel = panelRef.current;
-    const focusables = panel?.querySelectorAll<HTMLElement>('button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])');
+    const focusables = panel?.querySelectorAll<HTMLElement>(focusableSelector);
     const first = focusables && focusables.length > 0 ? focusables[0] : panel;
     first?.focus();
     const originalOverflow = document.body.style.overflow;
@@ -57,7 +59,31 @@ export function Dialog({
   useEffect(() => {
     if (!open) return;
     const onKey = (event: KeyboardEvent) => {
-      if (event.key === "Escape") onClose();
+      if (event.key === "Escape") {
+        onClose();
+        return;
+      }
+      if (event.key !== "Tab") return;
+
+      const panel = panelRef.current;
+      if (!panel) return;
+      const focusables = Array.from(panel.querySelectorAll<HTMLElement>(focusableSelector));
+      if (focusables.length === 0) {
+        event.preventDefault();
+        panel.focus();
+        return;
+      }
+
+      const first = focusables[0];
+      const last = focusables[focusables.length - 1];
+      const active = document.activeElement;
+      if (event.shiftKey && (active === first || !panel.contains(active))) {
+        event.preventDefault();
+        last.focus();
+      } else if (!event.shiftKey && (active === last || !panel.contains(active))) {
+        event.preventDefault();
+        first.focus();
+      }
     };
     document.addEventListener("keydown", onKey);
     return () => document.removeEventListener("keydown", onKey);
@@ -74,6 +100,7 @@ export function Dialog({
         aria-modal="true"
         aria-labelledby={labelledBy ?? (title ? titleId : undefined)}
         aria-describedby={description ? descId : undefined}
+        tabIndex={-1}
         className={cn("relative w-full max-w-lg rounded-dialog border border-hairline bg-surface p-6 shadow-dialog", className)}
       >
         <div className={cn("flex items-start justify-between gap-4", Boolean(title || description) && "border-b border-hairline pb-4")}>
