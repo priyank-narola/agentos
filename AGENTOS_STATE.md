@@ -42,7 +42,7 @@ verification and an exact commit or PR reference.
   REST-authentication bypass: every environment other than `development` now
   requires REST authentication regardless of `REST_AUTH_REQUIRED`.
 - On the review branch, the complete backend suite has since been re-run with
-  `384 passed, 8 skipped, 1 warning` (no failures). Frontend typecheck, lint,
+  `385 passed, 8 skipped, 1 warning` (no failures). Frontend typecheck, lint,
   and the 21-route production build also pass. These are review-branch
   verification facts, not evidence of customer validation or authorization to
   merge/deploy.
@@ -102,7 +102,7 @@ Next.js (frontend) · FastAPI (backend) · PostgreSQL 16 (authoritative) · SQLA
 
 ## 7. Test Truth
 
-- Review branch: backend suite: **384 passed / 8 skipped / 1 warning / 0
+- Review branch: backend suite: **385 passed / 8 skipped / 1 warning / 0
   failed**. The remaining warning is Starlette's upstream `BlockingPortal`
   deprecation; test code no longer uses deprecated `datetime.utcnow()`.
 - Frontend: `npm run typecheck`, `npm run lint`, and `npm run build` PASS; the
@@ -133,7 +133,7 @@ Next.js (frontend) · FastAPI (backend) · PostgreSQL 16 (authoritative) · SQLA
 ## 9. Known Debt (see AGENTOS_OPERATING_PROMPT §18)
 
 - ~~P0: REST control-plane authentication/authorization~~ — RESOLVED (enforced in non-development deployments).
-- P1: demo scenario engines bypassing governance/ledger in some synthetic paths; legacy CISO demo not repeatable; lazy approval expiry; audit same-instant timestamp ordering.
+- P1: demo scenario engines bypassing governance/ledger in some synthetic paths; legacy CISO demo not repeatable; audit same-instant timestamp ordering. Approval reads now finalize due pending approvals under the existing guarded expiry transition; no reviewer action is required to make an expired approval terminal.
 - P2: majority SQLite-only coverage; no comprehensive PG E2E; API error semantics (409-for-validation, 404-for-missing-approver, 201-on-replay); execution_status weakly represented in the action-request schema; demo-data accumulation; concurrent approval test added but SQLite concurrency proof is limited.
 - P3: unwired webhook handler + in-memory dedup; resource `owner_reference` never enforced; some unused/dead endpoints; cosmetic UI gaps.
 - P4: premature infrastructure/features without evidence (see Do-Not-Build list).

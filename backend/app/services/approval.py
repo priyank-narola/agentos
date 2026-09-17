@@ -46,10 +46,19 @@ class ApprovalService:
         self.execution_providers = execution_providers or build_execution_provider_registry()
 
     def list(self, tenant_id: UUID | None = None) -> list[ApprovalDetailSchema]:
-        return [self._detail(item) for item in self.repository.list(tenant_id=tenant_id)]
+        approvals = self.repository.list(tenant_id=tenant_id)
+        if any(self._is_due_for_expiry(item) for item in approvals):
+            for item in approvals:
+                if self._is_due_for_expiry(item):
+                    self._transition(item.id, None, ApprovalStatus.EXPIRED, tenant_id=tenant_id)
+            approvals = self.repository.list(tenant_id=tenant_id)
+        return [self._detail(item) for item in approvals]
 
     def get(self, approval_id: UUID, tenant_id: UUID | None = None) -> ApprovalDetailSchema | None:
         item = self.repository.get(approval_id, tenant_id=tenant_id)
+        if item is not None and self._is_due_for_expiry(item):
+            self._transition(item.id, None, ApprovalStatus.EXPIRED, tenant_id=tenant_id)
+            item = self.repository.get(approval_id, tenant_id=tenant_id)
         return self._detail(item) if item else None
 
     def eligible_approvers(self, approval_id: UUID, tenant_id: UUID | None = None) -> "list[dict]":
@@ -63,6 +72,8 @@ class ApprovalService:
         """
         approval = self.repository.get(approval_id, tenant_id=tenant_id)
         if approval is None:
+            return []
+        if approval.status != ApprovalStatus.PENDING:
             return []
         requester_ids = {approval.requested_by}
         if approval.action_request is not None:
@@ -110,6 +121,22 @@ class ApprovalService:
 
     def expire(self, approval_id: UUID) -> ApprovalDetailSchema:
         return self._transition(approval_id, None, ApprovalStatus.EXPIRED)
+
+    @staticmethod
+    def _is_due_for_expiry(approval: ApprovalRequest, now: datetime | None = None) -> bool:
+        """Return whether a pending approval crossed its expiry boundary.
+
+        SQLite returns naive datetimes even for timezone-aware columns, while
+        PostgreSQL preserves the UTC offset, so normalize before comparison.
+        """
+        if approval.status != ApprovalStatus.PENDING or approval.expires_at is None:
+            return False
+        expires_at = (
+            approval.expires_at.replace(tzinfo=timezone.utc)
+            if approval.expires_at.tzinfo is None
+            else approval.expires_at
+        )
+        return expires_at <= (now or datetime.now(timezone.utc))
 
     def cancel(self, approval_id: UUID, payload: ApprovalActionRequest, tenant_id: UUID | None = None) -> ApprovalDetailSchema:
         return self._transition(approval_id, payload.approver_principal_id, ApprovalStatus.CANCELLED, tenant_id=tenant_id)

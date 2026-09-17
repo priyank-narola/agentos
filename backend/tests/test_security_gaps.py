@@ -32,6 +32,7 @@ from app.db.models import (
 )
 from app.db.session import get_db
 from app.main import app
+from app.services.approval import ApprovalService
 
 engine = create_engine("sqlite://", connect_args={"check_same_thread": False}, poolclass=StaticPool)
 Base.metadata.create_all(engine)
@@ -219,6 +220,31 @@ def test_expired_approval_is_automatically_rejected():
     with TestingSession() as session:
         approval = session.get(ApprovalRequest, uuid.UUID(approval_id))
         assert approval.status == ApprovalStatus.EXPIRED
+
+
+def test_expired_approval_is_finalized_when_listed():
+    """A stale pending approval becomes terminal without a reviewer action."""
+    ids = _seed_high_risk()
+    body = {"principal_id": ids["principal_id"], "agent_id": ids["agent_id"],
+            "action_id": ids["action_id"], "resource_id": ids["resource_id"],
+            "parameters": {"amount": 15000}, "idempotency_key": str(uuid.uuid4())}
+    response = client.post("/api/v1/action-requests", json=body, headers=_auth(ids["external_id"]))
+    assert response.status_code == 201
+
+    with TestingSession() as session:
+        approval = session.scalar(select(ApprovalRequest).limit(1))
+        assert approval is not None
+        approval.expires_at = datetime.now(timezone.utc) - timedelta(hours=1)
+        session.commit()
+        approval_id = approval.id
+
+    with TestingSession() as session:
+        details = ApprovalService(session).list()
+        detail = next(item for item in details if item.id == approval_id)
+        assert detail.status == ApprovalStatus.EXPIRED
+        refreshed = session.get(ApprovalRequest, approval_id)
+        assert refreshed is not None
+        assert refreshed.status == ApprovalStatus.EXPIRED
 
 
 # ── P2-04: Suspended principal rejection ─────────────────────────────────
