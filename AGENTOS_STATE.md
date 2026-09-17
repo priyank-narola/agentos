@@ -133,7 +133,7 @@ Next.js (frontend) · FastAPI (backend) · PostgreSQL 16 (authoritative) · SQLA
 ## 9. Known Debt (see AGENTOS_OPERATING_PROMPT §18)
 
 - ~~P0: REST control-plane authentication/authorization~~ — RESOLVED (enforced in non-development deployments).
-- P1: demo scenario engines bypassing governance/ledger in some synthetic paths; legacy CISO demo not repeatable. Approval reads now finalize due pending approvals under the existing guarded expiry transition; no reviewer action is required to make an expired approval terminal. Audit presentations now order action events by durable causal sequence with stable timestamp/ID tie-breakers.
+- P1: demo scenario engines bypassing governance/ledger in some synthetic paths. The CISO sandbox demo is repeatable (`test_ciso_repeatability.py` verifies two consecutive runs without tenant/tool duplication and with one ledger row per successful run). Approval reads now finalize due pending approvals under the existing guarded expiry transition; no reviewer action is required to make an expired approval terminal. Audit presentations now order action events by durable causal sequence with stable timestamp/ID tie-breakers.
 - P2: majority SQLite-only coverage; no comprehensive PG E2E; API error semantics (409-for-validation, 404-for-missing-approver, 201-on-replay); execution_status weakly represented in the action-request schema; demo-data accumulation; concurrent approval test added but SQLite concurrency proof is limited.
 - P3: unwired webhook handler + in-memory dedup; resource `owner_reference` never enforced; some unused/dead endpoints; cosmetic UI gaps.
 - P4: premature infrastructure/features without evidence (see Do-Not-Build list).
