@@ -32,12 +32,14 @@ This folder contains the active documents for turning the existing technical pro
 
 ## Current status
 
-The selected first pilot is governed customer credits and refunds, with a
-Zendesk read-only context boundary and Stripe test-mode refund boundary. The
-reusable product foundation supports payload-bound context, portable evidence,
-causal audit order, connector-ready routing, and safe action preflight. No
-final product name, live customer connector, public launch, or paid commercial
-commitment has been approved yet.
+Governed customer credits and refunds is the **provisional review-branch pilot
+hypothesis**, with a Zendesk read-only context boundary and Stripe test-mode
+refund boundary. It is not market validated and must not be treated as the
+final product decision. The reusable product foundation supports payload-bound
+context, portable evidence, causal audit order, connector-ready routing, and
+safe action preflight. `AGENTOS_STATE.md` is canonical: no final product name,
+live customer connector, public launch, commercial commitment, or merge to
+`main` has been approved.
 # Product discovery and build records
 
 The selected first pilot is documented in [Customer Credits & Refunds Pilot Spec V1](CUSTOMER_REMEDIATION_PILOT_SPEC_V1.md).

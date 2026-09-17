@@ -1,5 +1,9 @@
 # Build Execution Record V1
 
+**Status:** Reference record. `AGENTOS_STATE.md` is the canonical current
+state lock. The product/market direction below is a hypothesis, not an approved
+launch decision; the review branch remains unmerged.
+
 ## Purpose
 
 This is the running engineering and product record for the current build. It
@@ -9,16 +13,20 @@ live pilot or public launch.
 
 ## Product direction
 
-The current **provisional** first pilot is governed customer credits and
-refunds. The product sits between an existing support AI/workflow and the
-connected business systems. It governs the precise proposed action; it does
-not replace the support agent, helpdesk, billing platform, or payment provider.
+The current **provisional** first-pilot hypothesis is governed customer credits
+and refunds. The product would sit between an existing support AI/workflow and
+the connected business systems. It would govern the precise proposed action;
+it would not replace the support agent, helpdesk, billing platform, or payment
+provider.
 
 The pilot is still subject to discovery evidence and design-partner validation.
 It may be changed if customer evidence shows that native support/billing tools
 already solve the buyer's actual problem.
 
-## Completed milestones
+## Completed milestones (review-branch artifacts)
+
+These are implemented artifacts on `codex/unverified-working-tree-20260917`.
+They are not a customer-validated product milestone or authorization to merge.
 
 | Milestone | Outcome | Verification |
 | --- | --- | --- |
@@ -31,15 +39,21 @@ already solve the buyer's actual problem.
 
 ## Current milestone
 
-**Pilot workflow completeness and launch-hardening.** The next implementation
-work must make the first pilot easier for a buyer/operator to set up, inspect,
-and safely rehearse without expanding into a generic agent platform.
+**Frozen-scope review-branch verification and discovery preparation.** Until
+the founder Next Decision in `AGENTOS_STATE.md` is approved, work is limited to
+verified bug/security fixes, test coverage, documentation reconciliation,
+accessibility/reliability work, and locally testable launch-readiness. No new
+pilot feature, production exposure, external outreach, or merge to `main` is
+authorized by this record.
 
 ## Verified checks
 
-Latest full backend run: **381 passed, 8 skipped**. Latest targeted agent
-lifecycle run: **10 passed**. Frontend typecheck and lint pass. Docker and a
-real PostgreSQL deployment rehearsal have not been run in this environment.
+Latest full backend run on `codex/unverified-working-tree-20260917`:
+**391 passed, 8 skipped, 1 upstream warning**. Frontend typecheck, lint, and
+the 21-route production build pass. These are branch verification facts only;
+they do not validate demand, certify production readiness, or authorize a
+merge/deployment. Docker and a real PostgreSQL deployment rehearsal have not
+been run in this environment.
 
 ## Known launch gaps
 
@@ -66,11 +80,14 @@ real PostgreSQL deployment rehearsal have not been run in this environment.
 
 ## Pending permissions list
 
-No immediate permission blocks safe local development.
+| Permission / decision | Why it is needed | What it blocks |
+| --- | --- | --- |
+| Founder approval to send customer-discovery outreach | Customer evidence is zero; any outreach is external communication in Priyank's name. | Real buyer/problem validation and design-partner discovery. |
+| Founder approval for external/customer-hosted exposure | Requires a selected pilot environment, scoped credentials, identity/tenant design, and external operational ownership. | Hosted validation, test-mode connector rehearsal, and real customer data access. |
+| Founder approval to merge a reviewed change set to `main` | The review branch contains an unmerged snapshot and subsequent verification/hardening commits. | A release candidate or any claim that the branch is the accepted baseline. |
 
-When discovery identifies a willing design partner, add a scoped entry before
-any real integration: provider, environment, minimum OAuth/API scopes, data
-fields, owner, purpose, test plan, and expiry/rotation plan. Production
-deployment, customer communication, legal terms, paid services, and live
-credentials require explicit, scoped approval and are not inferred from this
-record.
+When discovery identifies a willing design partner, expand the second entry
+with the provider, environment, minimum OAuth/API scopes, data fields, owner,
+purpose, test plan, and expiry/rotation plan. Production deployment, customer
+communication, legal terms, paid services, and live credentials require
+explicit, scoped approval and are not inferred from this record.
