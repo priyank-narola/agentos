@@ -23,7 +23,11 @@ from fastapi import Request
 from app.config import Settings
 
 _REQUEST_ID_PATTERN = re.compile(r"^[A-Za-z0-9._-]{8,128}$")
-_STANDARD_LOG_FIELDS = set(logging.makeLogRecord({}).__dict__)
+# Structured operational logs must remain useful without becoming an accidental
+# customer-data store. New call sites may opt into these fields only; arbitrary
+# ``extra`` values (for example tokens, action parameters, email addresses, or
+# provider payloads) are intentionally ignored.
+_SAFE_LOG_EXTRA_FIELDS = frozenset({"event", "request_id", "method", "path", "status_code", "duration_ms"})
 
 
 class RuntimeMetrics:
@@ -80,8 +84,9 @@ class JsonLogFormatter(logging.Formatter):
             "logger": record.name,
             "message": record.getMessage(),
         }
-        for key, value in record.__dict__.items():
-            if key not in _STANDARD_LOG_FIELDS and not key.startswith("_"):
+        for key in _SAFE_LOG_EXTRA_FIELDS:
+            value = record.__dict__.get(key)
+            if value is not None:
                 payload[key] = value
         if record.exc_info:
             payload["exception"] = self.formatException(record.exc_info)
