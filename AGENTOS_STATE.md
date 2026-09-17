@@ -1,6 +1,6 @@
 # AGENTOS — CURRENT STATE LOCK (Canonical Project State)
 
-**Version:** 1.4 — 17 September 2026
+**Version:** 1.5 — 17 September 2026
 **Status:** CURRENT (canonical). Companion to `AGENTOS_OPERATING_PROMPT.md`.
 **Verified baseline:** Git `main` @ `332e68c65b2ba1d888707f0031fe83a7be3fbd2b` (governance UX redesign, Intelligence V2, and security-audit fixes).
 **Update rule:** This file is authoritative until a new verified audit changes it. Any agent updating it must verify against source, DB, runtime, and executed tests first, and record the new Git checkpoint.
@@ -35,6 +35,17 @@ does not validate market demand, authorize a merge to `main`, permit production
 deployment, or authorize customer outreach, live data, payments, spending, or
 legal commitments. Every claimed milestone still requires proportionate
 verification and an exact commit or PR reference.
+
+### Review-branch verification checkpoint — 17 September 2026
+
+- Commit `f1a78e0e269e0ec3fa988642874f27f6e8364987` closes a hosted-environment
+  REST-authentication bypass: every environment other than `development` now
+  requires REST authentication regardless of `REST_AUTH_REQUIRED`.
+- On the review branch, the complete backend suite has since been re-run with
+  `384 passed, 8 skipped, 3 warnings` (no failures). Frontend typecheck, lint,
+  and the 21-route production build also pass. These are review-branch
+  verification facts, not evidence of customer validation or authorization to
+  merge/deploy.
 
 ## Backlog Closure (W1–W18) — 8 September 2026
 The historical/pending-work backlog sprint is closed for engineering. See `docs/OLD_WORK_BACKLOG_CLOSURE_REPORT.md` for the authoritative W1–W18 audit.
@@ -91,8 +102,16 @@ Next.js (frontend) · FastAPI (backend) · PostgreSQL 16 (authoritative) · SQLA
 
 ## 7. Test Truth
 
-- Backend: 326 passed / 8 skipped / 1 deselected (pre-existing env-dependent test) / 0 failed. Security gap tests (test_security_gaps.py): 11 new tests covering rate limiting, token expiry, approval expiry, suspended principal, expired delegation, inactive agent, concurrent approval, and deactivated principal.
-- Frontend: typecheck PASS, lint PASS.
+- Review branch (`f1a78e0e`): backend suite: **384 passed / 8 skipped / 3
+  warnings / 0 failed**. The warnings are one Starlette `BlockingPortal`
+  deprecation and two test-only uses of `datetime.utcnow()`.
+- Frontend: `npm run typecheck`, `npm run lint`, and `npm run build` PASS; the
+  production build completes all 21 routes.
+- Historical note: the Phase 1 forensic-audit checkpoint recorded 326 passing
+  tests. It is not the current review-branch test count. Security gap tests
+  cover rate limiting, token expiry, approval expiry, suspended principal,
+  expired delegation, inactive agent, concurrent approval, and deactivated
+  principal.
 - Honest limits: majority of automated coverage is SQLite; not comprehensive PostgreSQL E2E; no automated true-E2E or frontend E2E; MCP runtime E2E with a real IdP token unproven. SQLite does not prove PG behavior.
 
 ## 8. Security State
@@ -125,7 +144,16 @@ Generic LLM gateway, prompt filtering/prompt-injection product, generic chatbot/
 
 ## 11. Documentation State
 
-Documentation is substantially stale. Known contradictions: "external execution disabled" / "NOT_EXECUTED" claims; old MCP identity model; old risk model; old tenant model; old delegation scopes; obsolete test counts; obsolete Render claims; obsolete competition/demo descriptions. Customer-discovery docs are accurate (0 evidence; FROZEN). Legacy competition docs (`AGENTOS_MASTER_PROMPT.md`, `AGENTOS_PROJECT_CONTEXT.md`) are marked historical; do not use them as source of truth. `AGENTOS_OPERATING_PROMPT.md` + this file are canonical.
+Documentation is substantially stale. Known contradictions: "external execution
+disabled" / unconditional `NOT_EXECUTED` claims; old MCP identity model; old
+risk model; old tenant model; old delegation scopes; obsolete Render claims;
+obsolete competition/demo descriptions. The current review-branch test count
+is recorded in section 7; individual historical reports may retain their
+original counts and must label them as historical. Customer-discovery docs are
+accurate (0 evidence; FROZEN). Legacy competition docs
+(`AGENTOS_MASTER_PROMPT.md`, `AGENTOS_PROJECT_CONTEXT.md`) are marked
+historical; do not use them as source of truth. `AGENTOS_OPERATING_PROMPT.md`
+and this file are canonical.
 
 ## 12. Evidence Ledger (conceptual labels)
 
