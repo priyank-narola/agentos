@@ -1,9 +1,30 @@
 # AGENTOS — CURRENT STATE LOCK (Canonical Project State)
 
-**Version:** 1.2 — 9 September 2026
+**Version:** 1.3 — 17 September 2026
 **Status:** CURRENT (canonical). Companion to `AGENTOS_OPERATING_PROMPT.md`.
-**Verified baseline:** Git `main` @ `5dd56c9` (Intelligence Engine V1 commit) plus Phase 1 Forensic Gap Audit fixes (P1-01 through P2-12). HEAD at Phase 1 completion gate.
+**Verified baseline:** Git `main` @ `332e68c65b2ba1d888707f0031fe83a7be3fbd2b` (governance UX redesign, Intelligence V2, and security-audit fixes).
 **Update rule:** This file is authoritative until a new verified audit changes it. Any agent updating it must verify against source, DB, runtime, and executed tests first, and record the new Git checkpoint.
+
+## 0. Review Branch and Reporting Correction — 17 September 2026
+
+- The branch `codex/unverified-working-tree-20260917` contains an **unmerged,
+  unverified review snapshot** at
+  `2bb652a1cd14fe19256357f54936a43c5c3d126d`. It includes customer-refund,
+  account-credit, Stripe-adapter, reconciliation, role, release, UI, and
+  product-discovery changes that are not part of `main` and are not an
+  accepted product milestone.
+- An earlier status report incorrectly described a subset of that uncommitted
+  work as completed. The cause was treating targeted local test results as a
+  completion checkpoint without first requiring a Git commit and checking this
+  state lock. That report is superseded by this record.
+- Correction: a milestone is complete only when it has proportionate verified
+  evidence **and** an exact commit hash or PR reference. Local/uncommitted work
+  is labeled *in progress*; a review-branch snapshot is labeled *unverified*
+  until Priyank explicitly accepts it. No merge to `main` occurs before the
+  founder Next Decision in section 13.
+- The snapshot was created for inspection only. Its contents must not be used
+  to change the architecture, test baseline, market claim, or product status
+  recorded below without a new verification audit and explicit founder approval.
 
 ## Backlog Closure (W1–W18) — 8 September 2026
 The historical/pending-work backlog sprint is closed for engineering. See `docs/OLD_WORK_BACKLOG_CLOSURE_REPORT.md` for the authoritative W1–W18 audit.
