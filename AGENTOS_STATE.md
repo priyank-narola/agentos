@@ -42,7 +42,7 @@ verification and an exact commit or PR reference.
   REST-authentication bypass: every environment other than `development` now
   requires REST authentication regardless of `REST_AUTH_REQUIRED`.
 - On the review branch, the complete backend suite has since been re-run with
-  `384 passed, 8 skipped, 3 warnings` (no failures). Frontend typecheck, lint,
+  `384 passed, 8 skipped, 1 warning` (no failures). Frontend typecheck, lint,
   and the 21-route production build also pass. These are review-branch
   verification facts, not evidence of customer validation or authorization to
   merge/deploy.
@@ -102,9 +102,9 @@ Next.js (frontend) · FastAPI (backend) · PostgreSQL 16 (authoritative) · SQLA
 
 ## 7. Test Truth
 
-- Review branch (`f1a78e0e`): backend suite: **384 passed / 8 skipped / 3
-  warnings / 0 failed**. The warnings are one Starlette `BlockingPortal`
-  deprecation and two test-only uses of `datetime.utcnow()`.
+- Review branch: backend suite: **384 passed / 8 skipped / 1 warning / 0
+  failed**. The remaining warning is Starlette's upstream `BlockingPortal`
+  deprecation; test code no longer uses deprecated `datetime.utcnow()`.
 - Frontend: `npm run typecheck`, `npm run lint`, and `npm run build` PASS; the
   production build completes all 21 routes.
 - Historical note: the Phase 1 forensic-audit checkpoint recorded 326 passing

@@ -196,8 +196,9 @@ def test_expired_approval_is_automatically_rejected():
     with TestingSession() as session:
         approval = session.scalar(select(ApprovalRequest).limit(1))
         assert approval is not None
-        # Use naive datetime for SQLite compatibility (SQLite strips tzinfo)
-        approval.expires_at = datetime.utcnow() - timedelta(hours=1)
+        # Persist an aware UTC value; SQLite may strip tzinfo on retrieval, and
+        # the approval service normalizes that database representation to UTC.
+        approval.expires_at = datetime.now(timezone.utc) - timedelta(hours=1)
         session.commit()
         approval_id = str(approval.id)
 
@@ -241,8 +242,9 @@ def test_expired_delegation_blocks_gateway_submission():
     ids = _seed()
     with TestingSession() as session:
         delegation = session.scalar(select(Delegation).where(Delegation.agent_id == uuid.UUID(ids["agent_id"])))
-        # Use naive datetime for SQLite compatibility (SQLite strips tzinfo)
-        delegation.expires_at = datetime.utcnow() - timedelta(hours=1)
+        # Persist an aware UTC value; SQLite may strip tzinfo on retrieval, and
+        # the policy path normalizes that database representation to UTC.
+        delegation.expires_at = datetime.now(timezone.utc) - timedelta(hours=1)
         session.commit()
 
     headers = _auth(ids["external_id"])
