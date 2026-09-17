@@ -5,7 +5,7 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
-_is_production = os.getenv("APP_ENV", "development") == "production"
+_is_hosted = os.getenv("APP_ENV", "development") in {"staging", "production"}
 _DEFAULT_AUTH_ISSUER = "https://auth.agentos.com"
 _DEFAULT_AUTH_AUDIENCE = "https://agentos-api-qm2r.onrender.com"
 _SANDBOX_WEBHOOK_SECRET = "sandbox-webhook-secret-change-me"
@@ -35,7 +35,7 @@ class Settings:
     database_max_overflow: int = int(os.getenv("DATABASE_MAX_OVERFLOW", "20"))
     database_pool_recycle_seconds: int = int(os.getenv("DATABASE_POOL_RECYCLE_SECONDS", "1800"))
     log_level: str = os.getenv("LOG_LEVEL", "INFO").upper()
-    log_format: str = os.getenv("LOG_FORMAT", "json" if _is_production else "plain").lower()
+    log_format: str = os.getenv("LOG_FORMAT", "json" if _is_hosted else "plain").lower()
 
     # MCP Auth settings
     mcp_auth_enabled: bool = os.getenv("MCP_AUTH_ENABLED", "false").lower() in ("true", "1", "yes")
@@ -51,7 +51,7 @@ class Settings:
     rate_limit_window_seconds: int = int(os.getenv("RATE_LIMIT_WINDOW_SECONDS", "60"))
 
     # Webhook verification (sandbox provider source). Replace in any real deployment.
-    webhook_secret: str = os.getenv("WEBHOOK_SECRET", "" if _is_production else _SANDBOX_WEBHOOK_SECRET)
+    webhook_secret: str = os.getenv("WEBHOOK_SECRET", "" if _is_hosted else _SANDBOX_WEBHOOK_SECRET)
     webhook_max_skew_seconds: int = int(os.getenv("WEBHOOK_MAX_SKEW_SECONDS", "300"))
 
     # Dev token endpoint: disabled by default; set DEV_TOKEN_ENABLED=true to opt in.
@@ -72,12 +72,14 @@ settings = Settings()
 
 
 def validate_runtime_configuration(current: Settings = settings) -> None:
-    """Fail closed for unsafe production configuration.
+    """Fail closed for unsafe hosted configuration.
 
     Local development intentionally remains easy to run. A process marked as
-    production, however, must not silently use placeholder identity settings,
-    an in-memory database, an HTTP browser origin, a development token issuer,
-    or a known sandbox webhook secret.
+    staging and production, however, must not silently use placeholder identity
+    settings, an in-memory database, an HTTP browser origin, a development
+    token issuer, or a known sandbox webhook secret. Staging is an externally
+    reachable environment too; delaying these checks until production creates
+    an avoidable insecure deployment path.
     """
     allowed_environments = {"development", "test", "staging", "production"}
     if current.app_env not in allowed_environments:
@@ -86,27 +88,27 @@ def validate_runtime_configuration(current: Settings = settings) -> None:
         )
     if current.app_env != "development" and current.dev_token_enabled:
         raise RuntimeConfigurationError("DEV_TOKEN_ENABLED must be false outside development")
-    if current.app_env != "production":
+    if current.app_env not in {"staging", "production"}:
         return
 
     errors: list[str] = []
     if not current.database_url.startswith("postgresql+"):
-        errors.append("DATABASE_URL must use a PostgreSQL SQLAlchemy URL in production")
+        errors.append("DATABASE_URL must use a PostgreSQL SQLAlchemy URL in hosted environments")
     if current.database_pool_size <= 0 or current.database_max_overflow < 0 or current.database_pool_recycle_seconds <= 0:
         errors.append("database pool size/recycle settings must be positive (max overflow may be zero)")
 
     origins = [origin.strip() for origin in current.frontend_origin.split(",") if origin.strip()]
     if not origins or any(not origin.startswith("https://") or origin == "*" for origin in origins):
-        errors.append("FRONTEND_ORIGIN must contain one or more explicit HTTPS origins in production")
+        errors.append("FRONTEND_ORIGIN must contain one or more explicit HTTPS origins in hosted environments")
 
     if not current.mcp_auth_issuer or current.mcp_auth_issuer == _DEFAULT_AUTH_ISSUER:
-        errors.append("MCP_AUTH_ISSUER must be explicitly configured in production")
+        errors.append("MCP_AUTH_ISSUER must be explicitly configured in hosted environments")
     if not current.mcp_auth_audience or current.mcp_auth_audience == _DEFAULT_AUTH_AUDIENCE:
-        errors.append("MCP_AUTH_AUDIENCE must be explicitly configured in production")
+        errors.append("MCP_AUTH_AUDIENCE must be explicitly configured in hosted environments")
     if not any((current.mcp_auth_secret_key, current.mcp_auth_public_key, current.mcp_auth_jwks_url)):
-        errors.append("configure MCP_AUTH_SECRET_KEY, MCP_AUTH_PUBLIC_KEY, or MCP_AUTH_JWKS_URL in production")
+        errors.append("configure MCP_AUTH_SECRET_KEY, MCP_AUTH_PUBLIC_KEY, or MCP_AUTH_JWKS_URL in hosted environments")
     if current.dev_token_enabled:
-        errors.append("DEV_TOKEN_ENABLED must be false in production")
+        errors.append("DEV_TOKEN_ENABLED must be false in hosted environments")
     if current.stripe_refund_connector_enabled:
         if not current.stripe_secret_key:
             errors.append("STRIPE_SECRET_KEY is required when the Stripe refund connector is enabled")
@@ -118,13 +120,13 @@ def validate_runtime_configuration(current: Settings = settings) -> None:
         if not current.zendesk_oauth_access_token:
             errors.append("ZENDESK_OAUTH_ACCESS_TOKEN is required when the Zendesk context connector is enabled")
     if not current.webhook_secret or current.webhook_secret == _SANDBOX_WEBHOOK_SECRET:
-        errors.append("WEBHOOK_SECRET must be a non-sandbox secret in production")
+        errors.append("WEBHOOK_SECRET must be a non-sandbox secret in hosted environments")
     if current.rate_limit_max <= 0 or current.rate_limit_window_seconds <= 0:
         errors.append("RATE_LIMIT_MAX and RATE_LIMIT_WINDOW_SECONDS must be positive")
     if current.log_level not in {"CRITICAL", "ERROR", "WARNING", "INFO", "DEBUG"}:
         errors.append("LOG_LEVEL must be a standard Python logging level")
     if current.log_format != "json":
-        errors.append("LOG_FORMAT must be json in production")
+        errors.append("LOG_FORMAT must be json in hosted environments")
 
     if errors:
         raise RuntimeConfigurationError("Unsafe production configuration: " + "; ".join(errors))

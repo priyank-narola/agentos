@@ -28,6 +28,25 @@ def production_settings(**overrides) -> Settings:
     return Settings(**values)
 
 
+def staging_settings(**overrides) -> Settings:
+    values = {
+        "app_env": "staging",
+        "database_url": "postgresql+psycopg://user:pass@db.example.test:5432/action_control",
+        "frontend_origin": "https://staging.example.test",
+        "mcp_auth_issuer": "https://identity.example.test",
+        "mcp_auth_audience": "https://api.staging.example.test",
+        "mcp_auth_jwks_url": "https://identity.example.test/.well-known/jwks.json",
+        "webhook_secret": "staging-webhook-secret",
+        "dev_token_enabled": False,
+        "rate_limit_max": 600,
+        "rate_limit_window_seconds": 60,
+        "log_level": "INFO",
+        "log_format": "json",
+    }
+    values.update(overrides)
+    return Settings(**values)
+
+
 def test_production_configuration_accepts_explicit_safe_settings() -> None:
     validate_runtime_configuration(production_settings())
 
@@ -53,6 +72,25 @@ def test_production_configuration_rejects_unsafe_values(overrides, message) -> N
 
 def test_non_production_configuration_keeps_local_development_available() -> None:
     validate_runtime_configuration(Settings(app_env="development", database_url=""))
+
+
+def test_staging_configuration_accepts_explicit_safe_hosted_settings() -> None:
+    validate_runtime_configuration(staging_settings())
+
+
+@pytest.mark.parametrize(
+    ("overrides", "message"),
+    [
+        ({"database_url": "sqlite:///unsafe.db"}, "DATABASE_URL"),
+        ({"frontend_origin": "http://staging.example.test"}, "FRONTEND_ORIGIN"),
+        ({"mcp_auth_jwks_url": "", "mcp_auth_public_key": "", "mcp_auth_secret_key": ""}, "MCP_AUTH_SECRET_KEY"),
+        ({"webhook_secret": "sandbox-webhook-secret-change-me"}, "WEBHOOK_SECRET"),
+        ({"log_format": "plain"}, "LOG_FORMAT"),
+    ],
+)
+def test_staging_configuration_rejects_unsafe_hosted_values(overrides, message) -> None:
+    with pytest.raises(RuntimeConfigurationError, match=message):
+        validate_runtime_configuration(staging_settings(**overrides))
 
 
 def test_staging_configuration_rejects_development_token_issuance() -> None:
