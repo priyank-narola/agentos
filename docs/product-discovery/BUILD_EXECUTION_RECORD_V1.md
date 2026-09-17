@@ -36,6 +36,7 @@ They are not a customer-validated product milestone or authorization to merge.
 | Failure recovery | Durable reconciliation jobs for uncertain execution outcomes; status readback never re-submits a consequential action | Execution-ledger and reconciliation tests |
 | Tenant roles | Database-backed `ADMIN`, `POLICY_AUTHOR`, `APPROVER`, `OPERATOR`, and `AUDITOR` enforcement on sensitive control-plane and read surfaces | Authorization and REST security tests |
 | Agent lifecycle | Explicit activate, suspend, and irreversible retire operations; generic record edits cannot change status; UI case file supports the lifecycle | Backend registry/authorization tests; frontend typecheck and lint |
+| Hosted configuration hardening | Staging and production reject unsafe startup configuration rather than accepting placeholder database, identity, browser-origin, webhook, rate-limit, or log settings | Commit `58bcaf6`; configuration and full backend test suites |
 
 ## Current milestone
 
@@ -49,7 +50,7 @@ authorized by this record.
 ## Verified checks
 
 Latest full backend run on `codex/unverified-working-tree-20260917`:
-**391 passed, 8 skipped, 1 upstream warning**. Frontend typecheck, lint, and
+**397 passed, 8 skipped, 1 upstream warning**. Frontend typecheck, lint, and
 the 21-route production build pass. These are branch verification facts only;
 they do not validate demand, certify production readiness, or authorize a
 merge/deployment. Docker and a real PostgreSQL deployment rehearsal have not

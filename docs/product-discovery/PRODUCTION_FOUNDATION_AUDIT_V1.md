@@ -23,7 +23,7 @@ The repository has a strong sandbox/control-plane foundation but is **not produc
 
 | ID | Gap | Why it blocks launch | Required remediation |
 | --- | --- | --- | --- |
-| PF-01 | No startup production-configuration validation | A deployment can start with unsafe/missing database, auth, webhook, or origin configuration and fail later | Fail closed at startup; test production settings matrix |
+| PF-01 | Hosted startup-configuration validation | **Resolved on the review branch at `58bcaf6`**: staging and production now fail closed without explicit PostgreSQL, HTTPS browser origins, identity verifier, non-sandbox webhook secret, safe limits, and JSON logging; regression tests cover safe/unsafe hosted matrices | Re-verify against the selected hosting environment before release; no merge/production claim implied |
 | PF-02 | REST auth path currently relies on HMAC secret fallback logic | A production external JWKS/public-key identity-provider path needs explicit validation end to end | Support configured asymmetric/JWKS verifier in REST path; integration-test it |
 | PF-03 | No managed secret/configuration model | Connector keys and webhook secrets need environment isolation, rotation, and access controls | Adopt secret manager and configuration contract after hosting choice |
 | PF-04 | No container, CI/CD, infrastructure-as-code, staging, or release process | Cannot reproduce or safely deploy/roll back a SaaS release | Add build pipeline, staging, migrations, deploy, rollback, and approvals |
@@ -38,9 +38,9 @@ The repository has a strong sandbox/control-plane foundation but is **not produc
 
 ### M2-A — fail-closed runtime configuration
 
-1. Validate allowed environment modes, database URL, HTTPS production origins, webhook secret, auth verifier, no dev-token issuance, and safe rate-limit values at production startup.
-2. Make REST authentication work with a configured HMAC secret, public key, or JWKS verifier; no insecure non-production fallback in production.
-3. Add automated configuration tests.
+1. **Review-branch application guardrail complete:** `58bcaf6` validates allowed environment modes, PostgreSQL URL, HTTPS hosted origins, webhook secret, auth verifier, no dev-token issuance, safe rate-limit values, and JSON logs at staging/production startup.
+2. REST authentication accepts configured HMAC, public-key, or JWKS validation and no longer falls back to the local development secret outside development. A real selected-host identity-provider rehearsal remains required.
+3. Configuration tests cover accepted and rejected production and staging settings; keep them in the release gate.
 
 ### M2-B — release repeatability
 

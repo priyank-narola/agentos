@@ -1,6 +1,6 @@
 # AGENTOS — CURRENT STATE LOCK (Canonical Project State)
 
-**Version:** 1.5 — 17 September 2026
+**Version:** 1.6 — 17 September 2026
 **Status:** CURRENT (canonical). Companion to `AGENTOS_OPERATING_PROMPT.md`.
 **Verified baseline:** Git `main` @ `332e68c65b2ba1d888707f0031fe83a7be3fbd2b` (governance UX redesign, Intelligence V2, and security-audit fixes).
 **Update rule:** This file is authoritative until a new verified audit changes it. Any agent updating it must verify against source, DB, runtime, and executed tests first, and record the new Git checkpoint.
@@ -41,8 +41,14 @@ verification and an exact commit or PR reference.
 - Commit `f1a78e0e269e0ec3fa988642874f27f6e8364987` closes a hosted-environment
   REST-authentication bypass: every environment other than `development` now
   requires REST authentication regardless of `REST_AUTH_REQUIRED`.
+- Commit `58bcaf6` closes the remaining staging startup-configuration gap:
+  both `staging` and `production` now fail closed at startup without explicit
+  PostgreSQL, HTTPS browser origins, identity verifier, non-sandbox webhook
+  secret, safe limits, and JSON logging. Development and test remain usable
+  for local verification. The configuration regression suite now covers both
+  safe and unsafe staging settings.
 - On the review branch, the complete backend suite has since been re-run with
-  `391 passed, 8 skipped, 1 warning` (no failures). Frontend typecheck, lint,
+  `397 passed, 8 skipped, 1 warning` (no failures). Frontend typecheck, lint,
   and the 21-route production build also pass. These are review-branch
   verification facts, not evidence of customer validation or authorization to
   merge/deploy.
@@ -102,7 +108,7 @@ Next.js (frontend) · FastAPI (backend) · PostgreSQL 16 (authoritative) · SQLA
 
 ## 7. Test Truth
 
-- Review branch: backend suite: **391 passed / 8 skipped / 1 warning / 0
+- Review branch: backend suite: **397 passed / 8 skipped / 1 warning / 0
   failed**. The remaining warning is Starlette's upstream `BlockingPortal`
   deprecation; test code no longer uses deprecated `datetime.utcnow()`.
 - Frontend: `npm run typecheck`, `npm run lint`, and `npm run build` PASS; the
@@ -128,6 +134,10 @@ Next.js (frontend) · FastAPI (backend) · PostgreSQL 16 (authoritative) · SQLA
 - Rate limiting: 429 responses include `Retry-After` header (P2-09 fix).
 - Hosted REST verifier: staging and production never fall back to the known local development HMAC secret; an explicit HMAC/public-key/JWKS verifier is required or requests fail closed.
 - Dev-token endpoint: disabled by default; requires `DEV_TOKEN_ENABLED=true` to opt in **only in development**. Staging and production reject configuration and endpoint access (P1-04 hardening).
+- Hosted startup validation: staging and production require explicit PostgreSQL,
+  HTTPS origins, a configured identity verifier, non-sandbox webhook secret,
+  positive bounded limits, and JSON logging before the process starts;
+  development/test remain available for local verification.
 - Intelligence boundary: model provider output is advisory only (`is_advisory=True`); model cannot authorize, execute, or approve; provider failure → deterministic fallback (P1-05 fix: failures now logged).
 - Audit trail: `audit_events.actor_id` now has FK → `principals.id` with SET NULL on delete (P2-10 fix, migration 0005).
 
