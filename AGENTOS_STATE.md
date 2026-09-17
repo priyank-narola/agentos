@@ -1,6 +1,6 @@
 # AGENTOS — CURRENT STATE LOCK (Canonical Project State)
 
-**Version:** 1.3 — 17 September 2026
+**Version:** 1.4 — 17 September 2026
 **Status:** CURRENT (canonical). Companion to `AGENTOS_OPERATING_PROMPT.md`.
 **Verified baseline:** Git `main` @ `332e68c65b2ba1d888707f0031fe83a7be3fbd2b` (governance UX redesign, Intelligence V2, and security-audit fixes).
 **Update rule:** This file is authoritative until a new verified audit changes it. Any agent updating it must verify against source, DB, runtime, and executed tests first, and record the new Git checkpoint.
@@ -26,6 +26,16 @@
   to change the architecture, test baseline, market claim, or product status
   recorded below without a new verification audit and explicit founder approval.
 
+### Founder delivery directive — 17 September 2026
+
+Priyank explicitly authorized a deadline-driven engineering sprint toward the
+strongest possible delivery by **19 September 2026, 10:00 AM Asia/Kolkata**.
+Engineering may resume on `codex/unverified-working-tree-20260917` only. This
+does not validate market demand, authorize a merge to `main`, permit production
+deployment, or authorize customer outreach, live data, payments, spending, or
+legal commitments. Every claimed milestone still requires proportionate
+verification and an exact commit or PR reference.
+
 ## Backlog Closure (W1–W18) — 8 September 2026
 The historical/pending-work backlog sprint is closed for engineering. See `docs/OLD_WORK_BACKLOG_CLOSURE_REPORT.md` for the authoritative W1–W18 audit.
 - Migration head: `20260909_0005` (adds FK on `audit_events.actor_id`; verified fresh/existing on PG16).
@@ -43,14 +53,17 @@ The historical/pending-work backlog sprint is closed for engineering. See `docs/
 
 ## 1. One-Sentence State
 
-AgentOS is a technically validated, sandbox-only prototype of an AI-agent action-governance control plane (demonstrated on a $25,000 USD wire transfer); REST authentication enforced in non-development deployments; Intelligence Engine V1/V2 with advisory model provider, 186-scenario corpus, and adversarial evaluation; Phase 1 Forensic Gap Audit complete with all P0/P1/P2 fixes implemented; NOT market-validated (zero customer evidence); feature development is FROZEN pending customer discovery.
+AgentOS is a technically validated, sandbox-only prototype of an AI-agent action-governance control plane (demonstrated on a $25,000 USD wire transfer); REST authentication enforced in non-development deployments; Intelligence Engine V1/V2 with advisory model provider, 186-scenario corpus, and adversarial evaluation; Phase 1 Forensic Gap Audit complete with all P0/P1/P2 fixes implemented; NOT market-validated (zero customer evidence); a time-boxed review-branch engineering sprint is authorized, but no external launch authority is implied.
 
 ## 2. Business State
 
 - Technical validation: YES. Market/customer validation: NO.
 - Customer evidence: 0 interviews, 0 responses, 0 pilots, 0 design partners, 0 validated willingness-to-pay.
 - Status label: TECHNICALLY VALIDATED PROTOTYPE — NOT MARKET VALIDATED.
-- Feature development: FROZEN. Next phase: customer discovery, using the treasury demo as the technical artifact.
+- Feature development: review-branch sprint authorized through 19 September
+  2026, 10:00 AM Asia/Kolkata. Customer discovery remains required for market
+  validation and no work may be merged to `main` without a separate founder
+  approval.
 - Competing hypotheses (no winner declared): A) AI-agent action governance; B) AI Manufacturing OS; C) Semiconductor Supplier / Quality OS.
 
 ## 3. Architecture (actual)
@@ -131,7 +144,13 @@ Documentation is substantially stale. Known contradictions: "external execution 
 
 ## 13. Next Decision
 
-Before further development or before hosting the demo beyond localhost, decide (founder): (1) begin customer discovery with the treasury demo as the artifact (no code needed), and/or (2) authorize the P0 REST authentication + tenant authorization work as a prerequisite for any external/customer-hosted exposure. Do not start either automatically.
+The founder delivery directive on 17 September 2026 authorizes review-branch
+engineering, testing, documentation, and local/sandbox verification through
+the stated deadline. The following decisions remain explicitly pending: (1)
+send customer-discovery outreach using the treasury demo as the artifact, (2)
+authorize external/customer-hosted exposure and its P0 identity/tenant work,
+and (3) approve any merge to `main`. Do not start, deploy, contact, or merge
+automatically.
 
 ---
 
