@@ -170,7 +170,10 @@ is recorded in section 7; individual historical reports may retain their
 original counts and must label them as historical. Customer-discovery docs are
 accurate (0 evidence; FROZEN). Legacy competition docs
 (`AGENTOS_MASTER_PROMPT.md`, `AGENTOS_PROJECT_CONTEXT.md`) are marked
-historical; do not use them as source of truth. `AGENTOS_OPERATING_PROMPT.md`
+historical; do not use them as source of truth. Legacy Phase 5 outreach logs
+that claim messages were sent/delivered are explicitly marked historical and
+unverified: no communication source in this workspace proves those claims, so
+they are preparation only and not customer evidence. `AGENTOS_OPERATING_PROMPT.md`
 and this file are canonical.
 
 ## 12. Evidence Ledger (conceptual labels)

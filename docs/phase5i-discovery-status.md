@@ -1,5 +1,12 @@
 # AgentOS Phase 5I — Customer Discovery Status Report
 
+> **STATUS CORRECTION — 18 September 2026:** This is a historical,
+> unverified draft report. The repository and available communication sources do
+> not verify the claim below that five messages were dispatched. Treat its
+> research framing as preparation only, not customer evidence. `AGENTOS_STATE.md`
+> is canonical: outreach requires founder approval and no response, interview,
+> pilot, or willingness-to-pay evidence is verified.
+
 **Execution Date**: August 25, 2026  
 **Status**: DISCOVERY OUTREACH DISPATCHED — NO EMPIRICAL CUSTOMER VALIDATION YET  
 **Baseline Commit**: `7d5e97c4aedc220ffce3397cc92a9d5aa29e47cb`  

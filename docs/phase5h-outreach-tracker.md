@@ -1,5 +1,11 @@
 # AgentOS Phase 5H — Master Outreach Execution Tracker (20 Targets)
 
+> **STATUS CORRECTION — 18 September 2026:** This is a historical,
+> unverified draft tracker. The repository and available communication sources
+> do not verify the “DELIVERED” entries below. Treat all rows as potential
+> research targets only; do not use them as customer evidence or send a message
+> automatically. `AGENTOS_STATE.md` is canonical.
+
 **Version**: Phase 5I Master Tracker v1.1  
 **Baseline**: `docs/phase5d-outreach-log.md`, `docs/phase5h-expanded-outreach-targets.md`  
 **Directive**: This master tracker logs all 20 target companies across Candidate Wedges A through E. **Zero responses, quotes, budgets, or pilot commitments are fabricated.**  

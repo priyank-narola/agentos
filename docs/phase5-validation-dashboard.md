@@ -1,5 +1,12 @@
 # AgentOS Phase 5 — Discovery Validation Dashboard
 
+> **STATUS CORRECTION — 18 September 2026:** This is a historical,
+> unverified draft dashboard. The repository and available communication
+> sources do not verify the claim below that outreach was dispatched. Treat its
+> scorecard structure as preparation only, not customer evidence.
+> `AGENTOS_STATE.md` is canonical: outreach requires founder approval and no
+> response, interview, pilot, or willingness-to-pay evidence is verified.
+
 **Status**: REAL OUTREACH DISPATCHED — AWAITING FIRST CUSTOMER RESPONSE  
 **Baseline**: Phase 5F Real Outreach Results (`docs/phase5f-outreach-results.md`)  
 **Directive**: This dashboard synthesizes empirical evidence after customer responses and interviews occur. **Zero customer responses, quotes, or wedge winners are assumed.**  

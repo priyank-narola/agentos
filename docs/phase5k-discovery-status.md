@@ -1,5 +1,12 @@
 # AgentOS Phase 5K — Discovery Status & Real-World Execution Queue
 
+> **STATUS CORRECTION — 18 September 2026:** This is a historical,
+> unverified draft queue. The repository and available communication sources do
+> not verify the claim below that five initial messages were dispatched. Treat
+> all message copy as unsent preparation; do not contact targets automatically.
+> `AGENTOS_STATE.md` is canonical: outreach requires founder approval and no
+> response, interview, pilot, or willingness-to-pay evidence is verified.
+
 **Execution Date**: August 25, 2026  
 **Status**: AUTOMATED VERIFICATION AUDITED — AWAITING MANUAL OUTREACH DISPATCH & CUSTOMER RESPONSES  
 **Baseline Commit**: `7d5e97c4aedc220ffce3397cc92a9d5aa29e47cb`  

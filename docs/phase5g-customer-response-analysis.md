@@ -1,5 +1,12 @@
 # AgentOS Phase 5G — Customer Response & Interview Analysis Log
 
+> **STATUS CORRECTION — 18 September 2026:** This is a historical,
+> unverified draft record. The repository and available communication sources do
+> not verify the claims below that outreach was dispatched. Treat its target
+> analysis as research preparation only, not customer evidence. `AGENTOS_STATE.md`
+> is canonical: outreach requires founder approval and no response, interview,
+> pilot, or willingness-to-pay evidence is verified.
+
 **Execution Date**: August 25, 2026  
 **Status**: DISCOVERY OUTREACH ACTIVE — ZERO RESPONSES RECEIVED YET  
 **Baseline Commit**: `7d5e97c4aedc220ffce3397cc92a9d5aa29e47cb`  

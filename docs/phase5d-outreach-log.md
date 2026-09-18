@@ -1,5 +1,12 @@
 # AgentOS Phase 5D — Real Customer Outreach Execution Log
 
+> **STATUS CORRECTION — 18 September 2026:** This is a historical,
+> unverified draft record. The repository and available communication sources do
+> not verify the claims below that messages were sent or delivered. Treat its
+> targets and message language as research preparation only, not customer
+> evidence. `AGENTOS_STATE.md` is canonical: outreach requires founder approval
+> and no response, interview, pilot, or willingness-to-pay evidence is verified.
+
 **Version**: Phase 5D Audit Log v1.2  
 **Baseline**: Phase 5F Real Outreach Dispatch (`docs/phase5f-outreach-results.md`)  
 **Directive**: This log documents actual outreach dispatch. **Zero personal email addresses, responses, quotes, budgets, or pilot commitments are fabricated.**  

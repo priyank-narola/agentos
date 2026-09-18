@@ -1,5 +1,12 @@
 # AgentOS Phase 5F — Customer Discovery Real Outreach Results Log
 
+> **STATUS CORRECTION — 18 September 2026:** This is a historical,
+> unverified draft record. The repository and available communication sources do
+> not verify the claims below that messages were sent or delivered. Treat its
+> targets and message language as research preparation only, not customer
+> evidence. `AGENTOS_STATE.md` is canonical: outreach requires founder approval
+> and no response, interview, pilot, or willingness-to-pay evidence is verified.
+
 **Date of Execution**: August 25, 2026  
 **Status**: OUTREACH DISPATCHED — AWAITING FIRST CUSTOMER RESPONSE  
 **Baseline Commit**: `7d5e97c4aedc220ffce3397cc92a9d5aa29e47cb`  
