@@ -51,8 +51,11 @@ verification and an exact commit or PR reference.
   allow only a small operational field set (`event`, request ID, method, path,
   status, duration) and ignore arbitrary logging extras such as authorization
   headers, action parameters, or provider payloads.
+- Commit `573bd44` extends the same boundary to exception handling: hosted JSON
+  logs retain only an exception type, never a raw exception message or stack
+  that could contain provider, request, or connection detail.
 - On the review branch, the complete backend suite has since been re-run with
-  `398 passed, 8 skipped, 1 warning` (no failures). Frontend typecheck, lint,
+  `399 passed, 8 skipped, 1 warning` (no failures). Frontend typecheck, lint,
   and the 21-route production build also pass. These are review-branch
   verification facts, not evidence of customer validation or authorization to
   merge/deploy.
@@ -112,7 +115,7 @@ Next.js (frontend) · FastAPI (backend) · PostgreSQL 16 (authoritative) · SQLA
 
 ## 7. Test Truth
 
-- Review branch: backend suite: **398 passed / 8 skipped / 1 warning / 0
+- Review branch: backend suite: **399 passed / 8 skipped / 1 warning / 0
   failed**. The remaining warning is Starlette's upstream `BlockingPortal`
   deprecation; test code no longer uses deprecated `datetime.utcnow()`.
 - Frontend: `npm run typecheck`, `npm run lint`, and `npm run build` PASS; the
@@ -145,6 +148,8 @@ Next.js (frontend) · FastAPI (backend) · PostgreSQL 16 (authoritative) · SQLA
 - Structured JSON logs are data-minimised through an explicit operational-field
   allowlist; arbitrary `extra` values such as authorization headers, action
   parameters, and provider payloads are omitted by regression-tested default.
+  Exception messages and stacks are also excluded from hosted JSON logs; only
+  their class is retained for safe aggregation.
 - Intelligence boundary: model provider output is advisory only (`is_advisory=True`); model cannot authorize, execute, or approve; provider failure → deterministic fallback (P1-05 fix: failures now logged).
 - Audit trail: `audit_events.actor_id` now has FK → `principals.id` with SET NULL on delete (P2-10 fix, migration 0005).
 

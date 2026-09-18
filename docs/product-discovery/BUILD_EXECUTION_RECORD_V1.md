@@ -37,7 +37,7 @@ They are not a customer-validated product milestone or authorization to merge.
 | Tenant roles | Database-backed `ADMIN`, `POLICY_AUTHOR`, `APPROVER`, `OPERATOR`, and `AUDITOR` enforcement on sensitive control-plane and read surfaces | Authorization and REST security tests |
 | Agent lifecycle | Explicit activate, suspend, and irreversible retire operations; generic record edits cannot change status; UI case file supports the lifecycle | Backend registry/authorization tests; frontend typecheck and lint |
 | Hosted configuration hardening | Staging and production reject unsafe startup configuration rather than accepting placeholder database, identity, browser-origin, webhook, rate-limit, or log settings | Commit `58bcaf6`; configuration and full backend test suites |
-| Structured log minimisation | JSON logs emit only approved operational fields and cannot copy arbitrary token, action-context, or provider-payload extras | Commit `aea82b0`; regression and full backend test suites |
+| Structured log minimisation | JSON logs emit only approved operational fields, cannot copy arbitrary token/action-context/provider-payload extras, and record only exception type rather than raw message/stack | Commits `aea82b0`, `573bd44`; regression and full backend test suites |
 
 ## Current milestone
 
@@ -51,7 +51,7 @@ authorized by this record.
 ## Verified checks
 
 Latest full backend run on `codex/unverified-working-tree-20260917`:
-**398 passed, 8 skipped, 1 upstream warning**. Frontend typecheck, lint, and
+**399 passed, 8 skipped, 1 upstream warning**. Frontend typecheck, lint, and
 the 21-route production build pass. These are branch verification facts only;
 they do not validate demand, certify production readiness, or authorize a
 merge/deployment. Docker and a real PostgreSQL deployment rehearsal have not
