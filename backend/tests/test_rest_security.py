@@ -258,7 +258,7 @@ def test_cross_tenant_approval_access_denied(db_session):
     b_approval = db_session.scalars(select(ApprovalRequest).where(ApprovalRequest.tenant_id == t_b.id)).one()
 
     # Tenant A principal cannot act on Tenant B's approval.
-    response = client.post(f"/api/v1/approvals/{str(b_approval.id)}/reject", json={"approver_principal_id": str(p_a.id)}, headers=auth(p_a.external_id))
+    response = client.post(f"/api/v1/approvals/{str(b_approval.id)}/reject", json={"approver_principal_id": str(p_a.id), "decision_reason": "Cross-tenant authorization test"}, headers=auth(p_a.external_id))
     assert response.status_code in (403, 404)
 
 

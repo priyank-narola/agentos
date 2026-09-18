@@ -211,7 +211,7 @@ def test_expired_approval_is_automatically_rejected():
         approver_id = str(approver.id)
 
     result = client.post(f"/api/v1/approvals/{approval_id}/approve",
-                         json={"approver_principal_id": approver_id},
+                         json={"approver_principal_id": approver_id, "decision_reason": "Expiry boundary test"},
                          headers=_auth(approver_ext))
     # Expired approval returns 409 (Conflict) — service raises ApprovalConflictError
     assert result.status_code == 409
@@ -361,10 +361,10 @@ def test_concurrent_approve_attempts_only_one_succeeds():
     approver_headers = _auth(approver_ext)
 
     result1 = client.post(f"/api/v1/approvals/{approval_id}/approve",
-                          json={"approver_principal_id": approver_id},
+                          json={"approver_principal_id": approver_id, "decision_reason": "Concurrent approval test"},
                           headers=approver_headers)
     result2 = client.post(f"/api/v1/approvals/{approval_id}/approve",
-                          json={"approver_principal_id": approver_id},
+                          json={"approver_principal_id": approver_id, "decision_reason": "Concurrent approval test"},
                           headers=approver_headers)
 
     statuses = {result1.json().get("status"), result2.json().get("status")}

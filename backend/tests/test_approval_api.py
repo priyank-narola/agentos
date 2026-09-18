@@ -55,7 +55,7 @@ def pending_approval(key="approval-key", action_context=None):
 
 
 def action_payload(principal_id):
-    return {"approver_principal_id": principal_id}
+    return {"approver_principal_id": principal_id, "decision_reason": "Reviewed the full action context."}
 
 
 def test_gateway_creates_exactly_one_bound_pending_approval() -> None:
@@ -83,7 +83,16 @@ def test_approve_creates_final_allow_without_execution() -> None:
         assert decisions[-1].risk_score == decisions[0].risk_score
         events = session.scalars(select(AuditEvent).where(AuditEvent.action_request_id == UUID(gateway["action_request_id"]))).all()
         assert "APPROVAL_APPROVED" in [item.event_type for item in events]
+        approved_event = next(item for item in events if item.event_type == "APPROVAL_APPROVED")
+        assert approved_event.event_data["decision_reason"] == "Reviewed the full action context."
         assert all(item.event_data.get("execution_status") != "EXECUTED" for item in events)
+
+
+@pytest.mark.parametrize("operation", ["approve", "reject"])
+def test_approval_decision_reason_is_required_at_api_boundary(operation: str) -> None:
+    _, approver_id, _, approval = pending_approval(f"decision-reason-{operation}")
+    response = client.post(f"/api/v1/approvals/{approval['id']}/{operation}", json={"approver_principal_id": approver_id})
+    assert response.status_code == 422
 
 
 @pytest.mark.parametrize(("operation", "expected"), [("reject", ApprovalStatus.REJECTED), ("cancel", ApprovalStatus.CANCELLED)])

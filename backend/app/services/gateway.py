@@ -322,6 +322,7 @@ class GatewayService:
                 id=approval.id,
                 status=approval.status,
                 requested_by=approval.requested_by,
+                decision_reason=approval.decision_reason,
                 decided_by=approval.decided_by,
                 decided_at=approval.decided_at,
                 expires_at=approval.expires_at,

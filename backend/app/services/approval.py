@@ -114,10 +114,10 @@ class ApprovalService:
         return request
 
     def approve(self, approval_id: UUID, payload: ApprovalActionRequest, tenant_id: UUID | None = None) -> ApprovalDetailSchema:
-        return self._transition(approval_id, payload.approver_principal_id, ApprovalStatus.APPROVED, tenant_id=tenant_id)
+        return self._transition(approval_id, payload.approver_principal_id, ApprovalStatus.APPROVED, decision_reason=payload.decision_reason, tenant_id=tenant_id)
 
     def reject(self, approval_id: UUID, payload: ApprovalActionRequest, tenant_id: UUID | None = None) -> ApprovalDetailSchema:
-        return self._transition(approval_id, payload.approver_principal_id, ApprovalStatus.REJECTED, tenant_id=tenant_id)
+        return self._transition(approval_id, payload.approver_principal_id, ApprovalStatus.REJECTED, decision_reason=payload.decision_reason, tenant_id=tenant_id)
 
     def expire(self, approval_id: UUID) -> ApprovalDetailSchema:
         return self._transition(approval_id, None, ApprovalStatus.EXPIRED)
@@ -141,7 +141,7 @@ class ApprovalService:
     def cancel(self, approval_id: UUID, payload: ApprovalActionRequest, tenant_id: UUID | None = None) -> ApprovalDetailSchema:
         return self._transition(approval_id, payload.approver_principal_id, ApprovalStatus.CANCELLED, tenant_id=tenant_id)
 
-    def _transition(self, approval_id: UUID, actor_id: UUID | None, target: ApprovalStatus, tenant_id: UUID | None = None) -> ApprovalDetailSchema:
+    def _transition(self, approval_id: UUID, actor_id: UUID | None, target: ApprovalStatus, decision_reason: str | None = None, tenant_id: UUID | None = None) -> ApprovalDetailSchema:
         approval = self.repository.get(approval_id, lock=True)
         if approval is None:
             raise RegistryValidationError("Approval request not found")
@@ -237,6 +237,8 @@ class ApprovalService:
         approval.status = target
         approval.decided_by = actor_id
         approval.decided_at = now
+        if target in {ApprovalStatus.APPROVED, ApprovalStatus.REJECTED}:
+            approval.decision_reason = decision_reason
         if target == ApprovalStatus.APPROVED:
             self._final_allow(approval, actor_id)
         else:
@@ -383,7 +385,8 @@ class ApprovalService:
             "status": ApprovalStatus.APPROVED.value,
             "decision_id": str(decision.id),
             "execution_status": exec_status,
-            "payload_digest": digest
+            "payload_digest": digest,
+            "decision_reason": approval.decision_reason,
         }, decision.id)
 
     def _final_block(self, approval: ApprovalRequest, event_type: str, reason: str, actor_id: UUID | None) -> None:
@@ -398,7 +401,8 @@ class ApprovalService:
             "status": approval.status.value,
             "decision_id": str(decision.id),
             "execution_status": "NOT_EXECUTED",
-            "payload_digest": digest
+            "payload_digest": digest,
+            "decision_reason": approval.decision_reason,
         }, decision.id)
 
 
@@ -424,7 +428,7 @@ class ApprovalService:
         context = request.parameters.get(ACTION_CONTEXT_PARAMETER_KEY)
         action_context = ActionContext.model_validate(context) if context else None
         receipt = build_execution_receipt(self.db, request.id, action_context)
-        return ApprovalDetailSchema(id=approval.id, action_request_id=request.id, agent_id=request.agent_id, agent_name=request.agent.name, principal_id=request.principal_id, principal_name=request.principal.name if request.principal else None, action_id=request.action_id, action_name=request.action.name, tool_id=request.action.tool.id, tool_name=request.action.tool.name, resource_id=request.resource_id, resource_type=request.resource.resource_type, resource_key=request.resource.resource_key, parameters=executable_parameters(request.parameters), action_context=action_context, requested_by=approval.requested_by, status=approval.status, reason=approval.reason, risk_score=int(original.risk_score) if original and original.risk_score is not None else None, risk_classification=risk.get("classification"), risk_factors=risk.get("factors", []), policy_id=original.policy_id if original else None, policy_version=original.policy_version if original else None, execution_status=receipt.status, execution_receipt=receipt, decided_by=approval.decided_by, decided_at=approval.decided_at, requested_at=request.requested_at, expires_at=approval.expires_at)
+        return ApprovalDetailSchema(id=approval.id, action_request_id=request.id, agent_id=request.agent_id, agent_name=request.agent.name, principal_id=request.principal_id, principal_name=request.principal.name if request.principal else None, action_id=request.action_id, action_name=request.action.name, tool_id=request.action.tool.id, tool_name=request.action.tool.name, resource_id=request.resource_id, resource_type=request.resource.resource_type, resource_key=request.resource.resource_key, parameters=executable_parameters(request.parameters), action_context=action_context, requested_by=approval.requested_by, status=approval.status, reason=approval.reason, decision_reason=approval.decision_reason, risk_score=int(original.risk_score) if original and original.risk_score is not None else None, risk_classification=risk.get("classification"), risk_factors=risk.get("factors", []), policy_id=original.policy_id if original else None, policy_version=original.policy_version if original else None, execution_status=receipt.status, execution_receipt=receipt, decided_by=approval.decided_by, decided_at=approval.decided_at, requested_at=request.requested_at, expires_at=approval.expires_at)
 
     @staticmethod
     def _original_decision(request):

@@ -439,6 +439,7 @@ class ApprovalRequestSchema(DomainSchema):
     requested_by: UUID
     status: ApprovalStatus
     reason: str
+    decision_reason: str | None = None
     decided_by: UUID | None = None
     decided_at: datetime | None = None
     expires_at: datetime | None = None
@@ -463,6 +464,7 @@ class ApprovalDetailSchema(BaseModel):
     requested_by: UUID
     status: ApprovalStatus
     reason: str
+    decision_reason: str | None = None
     risk_score: int | None = None
     risk_classification: str | None = None
     risk_factors: list[dict[str, Any]] = Field(default_factory=list)
@@ -480,6 +482,7 @@ class EvidenceApproval(BaseModel):
     id: UUID
     status: ApprovalStatus
     requested_by: UUID
+    decision_reason: str | None = None
     decided_by: UUID | None = None
     decided_at: datetime | None = None
     expires_at: datetime | None = None
@@ -545,3 +548,4 @@ class ReconciliationResult(ReconciliationCase):
 class ApprovalActionRequest(BaseModel):
     model_config = ConfigDict(extra="forbid")
     approver_principal_id: UUID
+    decision_reason: str | None = Field(default=None, min_length=1, max_length=4000)

@@ -357,6 +357,7 @@ class ApprovalRequest(Base):
     requested_by: Mapped[uuid.UUID] = mapped_column(ForeignKey("principals.id", ondelete="RESTRICT"), nullable=False)
     status: Mapped[ApprovalStatus] = mapped_column(enum_type(ApprovalStatus), nullable=False, default=ApprovalStatus.PENDING)
     reason: Mapped[str] = mapped_column(Text, nullable=False)
+    decision_reason: Mapped[str | None] = mapped_column(Text, nullable=True)
     decided_by: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("principals.id", ondelete="RESTRICT"))
     decided_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     expires_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))

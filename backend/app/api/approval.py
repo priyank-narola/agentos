@@ -59,6 +59,8 @@ def transition(operation):
 
 @router.post("/{approval_id}/approve", response_model=ApprovalDetailSchema, dependencies=[Depends(check_rate_limit)])
 def approve(approval_id: UUID, payload: ApprovalActionRequest, request: Request, approvals: ApprovalService = Depends(service)) -> ApprovalDetailSchema:
+    if "decision_reason" not in payload.model_fields_set or payload.decision_reason is None:
+        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail="decision_reason is required when approving an action")
     principal = getattr(request.state, "principal", None)
     if principal is not None and payload.approver_principal_id != principal.id:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Authenticated principal cannot approve as another principal")
@@ -67,6 +69,8 @@ def approve(approval_id: UUID, payload: ApprovalActionRequest, request: Request,
 
 @router.post("/{approval_id}/reject", response_model=ApprovalDetailSchema, dependencies=[Depends(check_rate_limit)])
 def reject(approval_id: UUID, payload: ApprovalActionRequest, request: Request, approvals: ApprovalService = Depends(service)) -> ApprovalDetailSchema:
+    if "decision_reason" not in payload.model_fields_set or payload.decision_reason is None:
+        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail="decision_reason is required when rejecting an action")
     principal = getattr(request.state, "principal", None)
     if principal is not None and payload.approver_principal_id != principal.id:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Authenticated principal cannot reject as another principal")
