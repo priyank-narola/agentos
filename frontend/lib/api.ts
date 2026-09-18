@@ -136,6 +136,7 @@ export const api = {
   grantRole: (payload: { actor_principal_id: string; principal_id: string; role: PrincipalRoleAssignment["role"] }) => request<PrincipalRoleAssignment>("/api/v1/roles", { method: "POST", body: JSON.stringify(payload) }),
   revokeRole: (assignmentId: string, actor_principal_id: string) => request<void>(`/api/v1/roles/${assignmentId}`, { method: "DELETE", body: JSON.stringify({ actor_principal_id }) }),
   delegations: () => request<Delegation[]>("/api/v1/delegations"),
+  createDelegation: (payload: { principal_id: string; agent_id: string; scope: string; issued_at: string; expires_at?: string | null }) => request<Delegation>("/api/v1/delegations", { method: "POST", body: JSON.stringify(payload) }),
   revokeDelegation: (id: string) => request<Delegation>(`/api/v1/delegations/${id}/revoke`, { method: "POST" }),
   agents: () => request<Agent[]>("/api/v1/agents"),
   agent: (id: string) => request<Agent>(`/api/v1/agents/${id}`),
