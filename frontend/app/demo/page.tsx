@@ -139,7 +139,7 @@ export default function DemoPage() {
       const candidate = approvers.find((c) => c.id === approverId);
       const externalId = candidate?.external_id ?? manifest?.approver.external_id;
       if (externalId) await devTokenFor(externalId).catch(() => undefined);
-      const updated = await api[mode](approval.id, approverId);
+      const updated = await api[mode](approval.id, approverId, `Guided sandbox demo: ${mode} decision after reviewing the governed action context.`);
       setPhase(mode === "approve" ? "decided" : "blocked");
       await loadEvidence(updated);
     } catch (reason) {

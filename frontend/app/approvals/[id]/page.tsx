@@ -16,6 +16,7 @@ export default function ApprovalDetail({ params }: { params: Promise<{ id: strin
   const [principals, setPrincipals] = useState<Principal[]>([]);
   const [approvers, setApprovers] = useState<ApproverCandidate[]>([]);
   const [approverId, setApproverId] = useState<string>("");
+  const [decisionReason, setDecisionReason] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
 
@@ -49,9 +50,10 @@ export default function ApprovalDetail({ params }: { params: Promise<{ id: strin
 
   const act = (operation: "approve" | "reject") => {
     if (!approval || !approverId) return;
+    if (!decisionReason.trim()) { setError("A decision reason is required before approving or rejecting this action."); return; }
     setError(null);
     setBusy(true);
-    api[operation](approval.id, approverId)
+    api[operation](approval.id, approverId, decisionReason.trim())
       .then(async (updated) => {
         setApproval(updated);
         setRequest(await api.actionRequest(updated.action_request_id).catch(() => null));
@@ -244,10 +246,14 @@ export default function ApprovalDetail({ params }: { params: Promise<{ id: strin
                 </div>
               </div>
               <div className="mt-5 flex flex-wrap items-center gap-3 border-t border-hairline pt-5">
+                <label className="w-full text-[11px] font-semibold uppercase tracking-wide text-inkFaint" htmlFor="approval-decision-reason">
+                  Decision reason <span className="text-danger">required</span>
+                  <textarea id="approval-decision-reason" value={decisionReason} onChange={(event) => setDecisionReason(event.target.value)} disabled={busy} rows={3} placeholder="Explain why this exact action should be approved or rejected." className="mt-1.5 w-full rounded-control border border-hairlineStrong bg-surface px-3 py-2 text-sm normal-case tracking-normal text-ink outline-none placeholder:text-inkFaint focus-visible:ring-2 focus-visible:ring-focusRing" />
+                </label>
                 <button
                   type="button"
                   onClick={() => act("reject")}
-                  disabled={busy || approvers.length === 0}
+                  disabled={busy || approvers.length === 0 || !decisionReason.trim()}
                   className="min-h-[40px] rounded-control border border-dangerBorder bg-dangerBg px-5 text-sm font-semibold text-danger transition-colors hover:bg-danger hover:text-white disabled:opacity-40"
                 >
                   Reject
@@ -255,7 +261,7 @@ export default function ApprovalDetail({ params }: { params: Promise<{ id: strin
                 <button
                   type="button"
                   onClick={() => act("approve")}
-                  disabled={busy || approvers.length === 0}
+                  disabled={busy || approvers.length === 0 || !decisionReason.trim()}
                   className="min-h-[40px] rounded-control bg-signal px-6 text-sm font-semibold text-white transition-colors hover:bg-signalHover disabled:opacity-40"
                 >
                   {busy ? "Processing…" : `Approve as ${approvers.find((a) => a.id === approverId)?.name ?? "approver"}`}
@@ -280,6 +286,7 @@ export default function ApprovalDetail({ params }: { params: Promise<{ id: strin
                     {approval.decided_at ? `Decided by ${approvedBy} · ${formatDateTime(approval.decided_at)}` : "No decision was recorded"}
                     {executionStatus === "EXECUTED" ? " · Executed in the sandbox provider." : executionStatus === "FAILED" ? " · Execution failed in the sandbox provider." : " · No execution recorded."}
                   </p>
+                  {approval.decision_reason && <p className="mt-3 rounded-control border border-hairline bg-surfaceMuted px-3 py-2 text-sm leading-6 text-inkSubtle"><span className="font-semibold text-ink">Recorded decision reason:</span> {approval.decision_reason}</p>}
                 </div>
                 <div className="flex items-center gap-2.5">
                   <Status value={approval.status} />
