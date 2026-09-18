@@ -1,6 +1,7 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import Link from "next/link";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 
 import { Agent, Principal, api } from "@/lib/api";
@@ -15,6 +16,8 @@ export default function AgentsPage() {
   const [principals, setPrincipals] = useState<Principal[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
+  const [query, setQuery] = useState("");
+  const [status, setStatus] = useState("ALL");
 
   useEffect(() => {
     Promise.all([api.agents(), api.principals().catch(() => [] as Principal[])])
@@ -26,8 +29,12 @@ export default function AgentsPage() {
       .finally(() => setLoading(false));
   }, []);
 
-  const ownerName = (id: string) => principals.find((p) => p.id === id)?.name ?? shortId(id);
+  const ownerName = useCallback((id: string) => principals.find((p) => p.id === id)?.name ?? shortId(id), [principals]);
   const activeCount = agents.filter((a) => a.status === "ACTIVE").length;
+  const visibleAgents = useMemo(() => agents.filter((agent) => {
+    const matchesQuery = !query.trim() || [agent.name, agent.purpose, agent.version, ownerName(agent.owner_principal_id)].some((value) => value.toLowerCase().includes(query.trim().toLowerCase()));
+    return matchesQuery && (status === "ALL" || agent.status === status);
+  }), [agents, query, status, ownerName]);
 
   const columns: DataColumn<Agent>[] = [
     {
@@ -56,10 +63,14 @@ export default function AgentsPage() {
         <p className="max-w-2xl text-sm leading-6 text-inkSubtle">
           Software identities that act on behalf of a principal. Each agent acts only within the authority delegated to it.
         </p>
-        <span className="text-xs text-inkFaint">
-          {agents.length} registered · <span className="font-medium text-signal">{activeCount} active</span>
-        </span>
+        <div className="flex items-center gap-3"><Link href="/tools" className="text-xs font-semibold text-signal outline-none hover:text-signalHover focus-visible:ring-2 focus-visible:ring-focusRing">Tools & actions →</Link><span className="text-xs text-inkFaint">{agents.length} registered · <span className="font-medium text-signal">{activeCount} active</span></span></div>
       </div>
+
+      <section aria-label="Agent registry filters" className="mb-5 grid gap-3 rounded-card border border-hairline bg-surface p-4 sm:grid-cols-[minmax(0,1fr)_180px]">
+        <div><label htmlFor="agent-search" className="mb-1.5 block text-xs font-medium text-inkMuted">Search agent, owner, or purpose</label><input id="agent-search" value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Search registered agents" className="w-full rounded-control border border-hairline bg-surface px-3 py-2 text-sm text-ink outline-none placeholder:text-inkFaint focus-visible:ring-2 focus-visible:ring-focusRing" /></div>
+        <div><label htmlFor="agent-status" className="mb-1.5 block text-xs font-medium text-inkMuted">Lifecycle status</label><select id="agent-status" value={status} onChange={(event) => setStatus(event.target.value)} className="w-full rounded-control border border-hairline bg-surface px-3 py-2 text-sm text-ink outline-none focus-visible:ring-2 focus-visible:ring-focusRing"><option value="ALL">All statuses</option><option value="ACTIVE">Active</option><option value="SUSPENDED">Suspended</option><option value="RETIRED">Retired</option></select></div>
+        <p aria-live="polite" className="sm:col-span-2 text-xs text-inkFaint">{visibleAgents.length} of {agents.length} registered agents shown. Select an agent to inspect permitted authority and lifecycle controls.</p>
+      </section>
 
       {loading && <StateMessage>Loading agents…</StateMessage>}
       {error && <StateMessage tone="error">Unable to load agents. {error}</StateMessage>}
@@ -67,7 +78,7 @@ export default function AgentsPage() {
       {agents.length > 0 && (
         <DataTable<Agent>
           columns={columns}
-          rows={agents}
+          rows={visibleAgents}
           rowKey={(a) => a.id}
           onRowClick={(a) => router.push(`/agents/${a.id}`)}
           caption="Registered agents"
