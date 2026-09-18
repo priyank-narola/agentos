@@ -12,8 +12,8 @@ const config: Config = {
         surfaceSunken: "#eef1f0", // inset wells / code blocks
         ink: "#101827", // primary text + dark (sidebar / authority surfaces)
         inkMuted: "#51606c", // secondary text
-        inkSubtle: "#6c7886", // tertiary / meta text (still AA on white)
-        inkFaint: "#a0a9b2", // placeholder / disabled / decorative-only text
+        inkSubtle: "#566473", // tertiary / meta text (AA on canvas and white)
+        inkFaint: "#627080", // secondary labels and metadata (AA on canvas and white)
         hairline: "#e5e8ea", // default hairline borders
         hairlineStrong: "#d4dadb", // emphasized hairlines (inputs, focus edges)
 
