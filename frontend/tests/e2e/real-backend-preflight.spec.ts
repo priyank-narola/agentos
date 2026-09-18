@@ -108,3 +108,45 @@ test("approval workbench records an independent human decision against the real 
   await expect(page.getByText(/Verified the exact sandbox payload/)).toBeVisible();
   await expect(page.getByText(/Executed in the sandbox provider/)).toBeVisible();
 });
+
+test("policy workbench simulates a fresh draft without publishing or creating an action", async ({ page, request }) => {
+  const actionsBefore = await request.get(`${SANDBOX_API}/api/v1/action-requests`);
+  expect(actionsBefore.ok()).toBeTruthy();
+  const actionCountBefore = (await actionsBefore.json() as unknown[]).length;
+
+  const created = await request.post(`${SANDBOX_API}/api/v1/policies`, {
+    data: {
+      name: `Playwright draft ${Date.now()}`,
+      description: "Sandbox-only draft policy simulation verification",
+      version: 1,
+      priority: 1,
+    },
+  });
+  expect(created.ok()).toBeTruthy();
+  const draft = await created.json() as { id: string; status: string };
+  expect(draft.status).toBe("DRAFT");
+
+  const createdRule = await request.post(`${SANDBOX_API}/api/v1/policies/${draft.id}/rules`, {
+    data: { effect: "ALLOW", action: "wire_transfer", resource_type: "account", priority: 1 },
+  });
+  expect(createdRule.ok()).toBeTruthy();
+
+  await page.addInitScript(() => {
+    window.__AGENTOS_API_BASE_URL__ = "http://127.0.0.1:8100";
+  });
+  await page.goto(`/policies/${draft.id}`);
+
+  const simulation = page.locator("section").filter({ hasText: "Draft-only simulation" });
+  await expect(simulation.getByText("Test this draft without publishing")).toBeVisible();
+  await simulation.locator("label").filter({ hasText: /^Agent/ }).locator("select").selectOption({ label: "FinanceAgent" });
+  await simulation.locator("label").filter({ hasText: /^Action/ }).locator("select").selectOption({ label: "wire_transfer" });
+  await simulation.locator("label").filter({ hasText: /^Resource/ }).locator("select").selectOption({ label: "ACC-DEMO-TREASURY-01" });
+  await simulation.getByRole("button", { name: "Run draft simulation" }).click();
+
+  await expect(simulation.getByText(/matching draft rule\(s\) · no policy status changed/i)).toBeVisible();
+  const after = await request.get(`${SANDBOX_API}/api/v1/policies/${draft.id}`);
+  expect(after.ok()).toBeTruthy();
+  expect((await after.json() as { status: string }).status).toBe("DRAFT");
+  const actionsAfter = await request.get(`${SANDBOX_API}/api/v1/action-requests`);
+  expect((await actionsAfter.json() as unknown[]).length).toBe(actionCountBefore);
+});
