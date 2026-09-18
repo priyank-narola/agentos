@@ -69,6 +69,11 @@ verification and an exact commit or PR reference.
   filtering, causal-chain inspection, integrity metadata, and JSON export.
   The UI labels the environment sandbox/test-only and never implies live money
   movement.
+- Commit `7646950553be207c2378f8f0eeaf72877f5b6780` upgrades
+  `/action-requests` using the existing gateway/ledger request contract. It
+  adds searchable decision evidence, decision/risk/execution filtering,
+  visible routing and risk summaries, and direct preflight/test-action entry
+  points while preserving the existing detail case file.
 - Verification for this UI checkpoint: `npm run typecheck`, `npm run lint`,
   and `npm run build` pass. The production build completes 25 routes.
 - This remains review-branch UI work, not production readiness, customer
