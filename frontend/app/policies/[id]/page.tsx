@@ -4,7 +4,7 @@ import Link from "next/link";
 import { FormEvent, useCallback, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 
-import { Policy, PolicyRule, api } from "@/lib/api";
+import { Action, Agent, Policy, PolicyEvaluation, PolicyRule, Resource, api } from "@/lib/api";
 import { RegistryShell, StateMessage, StatusPill } from "@/components/registry-shell";
 
 const emptyRule = { effect: "ALLOW" as const, action: "", resource_type: "", priority: "100", conditions: "" };
@@ -15,6 +15,11 @@ export default function PolicyDetailPage({ params }: { params: Promise<{ id: str
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState<string | null>(null);
   const [rule, setRule] = useState<{ effect: "ALLOW" | "DENY"; action: string; resource_type: string; priority: string; conditions: string }>(emptyRule);
+  const [agents, setAgents] = useState<Agent[]>([]);
+  const [actions, setActions] = useState<Action[]>([]);
+  const [resources, setResources] = useState<Resource[]>([]);
+  const [simulation, setSimulation] = useState({ agent: "", action: "", resource: "" });
+  const [simulationResult, setSimulationResult] = useState<PolicyEvaluation | null>(null);
 
   const load = useCallback(async () => {
     try {
@@ -27,6 +32,7 @@ export default function PolicyDetailPage({ params }: { params: Promise<{ id: str
   }, [params]);
 
   useEffect(() => { void load(); }, [load]);
+  useEffect(() => { api.agents().then(async (agentData) => { const [resourceData, tools] = await Promise.all([api.resources(), api.tools()]); const actionData = (await Promise.all(tools.map((tool) => api.toolActions(tool.id)))).flat(); setAgents(agentData); setActions(actionData); setResources(resourceData); setSimulation({ agent: agentData[0]?.id ?? "", action: actionData[0]?.id ?? "", resource: resourceData[0]?.id ?? "" }); }).catch(() => undefined); }, []);
 
   async function lifecycle(action: "publish" | "retire" | "version") {
     if (!policy) return;
@@ -77,6 +83,17 @@ export default function PolicyDetailPage({ params }: { params: Promise<{ id: str
     } finally {
       setBusy(null);
     }
+  }
+
+  async function simulateDraft() {
+    if (!policy || !simulation.agent || !simulation.action || !simulation.resource) return;
+    const agent = agents.find((item) => item.id === simulation.agent);
+    const action = actions.find((item) => item.id === simulation.action);
+    if (!agent || !action) return;
+    setBusy("simulate"); setError(null);
+    try { setSimulationResult(await api.simulatePolicyDraft(policy.id, { principal_id: agent.owner_principal_id, agent_id: agent.id, tool_id: action.tool_id, action_id: action.id, resource_id: simulation.resource })); }
+    catch (reason) { setError(reason instanceof Error ? reason.message : "Draft simulation failed."); }
+    finally { setBusy(null); }
   }
 
   if (!policy && !error) return <RegistryShell title="Policy detail" eyebrow="Authorization rule"><StateMessage>Loading policy…</StateMessage></RegistryShell>;
@@ -139,6 +156,8 @@ export default function PolicyDetailPage({ params }: { params: Promise<{ id: str
             <div className="md:col-span-2"><button disabled={busy !== null} className="bg-ink px-4 py-2 text-sm font-medium text-white disabled:opacity-50">{busy === "rule" ? "Adding…" : "Add draft rule"}</button></div>
           </form>
         </section>}
+
+        {draft && <section className="mt-6 rounded-card border border-hairline bg-surface p-6"><p className="eyebrow text-inkFaint">Draft-only simulation</p><h2 className="mt-1 text-base font-semibold text-ink">Test this draft without publishing</h2><p className="mt-2 text-sm leading-6 text-inkSubtle">This evaluates only this draft against current registered references. It creates no action request and cannot activate the policy.</p><div className="mt-4 grid gap-3 md:grid-cols-3"><label className="text-sm font-medium text-inkMuted">Agent<select value={simulation.agent} onChange={(event) => setSimulation({ ...simulation, agent: event.target.value })} className="mt-1 w-full rounded-control border border-hairline bg-surface px-3 py-2 text-sm text-ink"><option value="">Select agent</option>{agents.map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}</select></label><label className="text-sm font-medium text-inkMuted">Action<select value={simulation.action} onChange={(event) => setSimulation({ ...simulation, action: event.target.value })} className="mt-1 w-full rounded-control border border-hairline bg-surface px-3 py-2 text-sm text-ink"><option value="">Select action</option>{actions.map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}</select></label><label className="text-sm font-medium text-inkMuted">Resource<select value={simulation.resource} onChange={(event) => setSimulation({ ...simulation, resource: event.target.value })} className="mt-1 w-full rounded-control border border-hairline bg-surface px-3 py-2 text-sm text-ink"><option value="">Select resource</option>{resources.map((item) => <option key={item.id} value={item.id}>{item.resource_key}</option>)}</select></label></div><button type="button" disabled={busy !== null || !simulation.agent || !simulation.action || !simulation.resource} onClick={() => void simulateDraft()} className="mt-4 rounded-control bg-signal px-4 py-2 text-sm font-semibold text-white disabled:opacity-50">{busy === "simulate" ? "Simulating…" : "Run draft simulation"}</button>{simulationResult && <div className="mt-4 rounded-card border border-hairline bg-surfaceMuted p-4"><div className="flex items-center justify-between gap-3"><p className="font-semibold text-ink">{simulationResult.decision}</p><StatusPill value={simulationResult.reason_code} /></div><p className="mt-2 text-sm text-inkSubtle">{simulationResult.reason}</p><p className="mt-2 text-xs text-inkFaint">{simulationResult.matched_policies.length} matching draft rule(s) · no policy status changed</p></div>}</section>}
 
         <section className="mt-6 border border-slate-200 bg-white p-6"><h2 className="font-semibold text-ink">Safe policy workflow</h2><ol className="mt-3 space-y-2 text-sm leading-6 text-slate-600"><li>1. Create a draft and define its rules.</li><li>2. Test representative requests in the evaluator.</li><li>3. Publish when reviewed; the prior live version is retired atomically.</li><li>4. Create the next draft for every later change, preserving a reviewable history.</li></ol></section>
       </>}
