@@ -1,6 +1,6 @@
 # AGENTOS — CURRENT STATE LOCK (Canonical Project State)
 
-**Version:** 1.7 — 18 September 2026
+**Version:** 1.8 — 18 September 2026
 **Status:** CURRENT (canonical). Companion to `AGENTOS_OPERATING_PROMPT.md`.
 **Verified baseline:** Git `main` @ `332e68c65b2ba1d888707f0031fe83a7be3fbd2b` (governance UX redesign, Intelligence V2, and security-audit fixes).
 **Update rule:** This file is authoritative until a new verified audit changes it. Any agent updating it must verify against source, DB, runtime, and executed tests first, and record the new Git checkpoint.
@@ -94,6 +94,40 @@ verification and an exact commit or PR reference.
 - This remains review-branch UI work, not production readiness, customer
   validation, permission for external exposure, or permission to merge.
 
+### Review-branch governance completion checkpoint — 18 September 2026
+
+- Commit `f6c64f430dcfc235c27cbb36cb25d9deeef20bab` adds source-backed search
+  and status filtering to the Agents registry. Commit
+  `ad3e9f891c4b6beaad6c77ae003e96a7fc674a80` does the same for the Tools /
+  Capabilities registry. Neither change invents registry data or connector
+  state.
+- Commit `609c46a96d0c6e85856f76f92ef72fd9348229e1` exposes the existing
+  persisted delegation-revocation endpoint in the UI. Commit
+  `eee1f94` exposes the existing persisted issuance endpoint with a
+  least-privilege form; commit `d0df25b` adds backend enforcement so direct
+  API callers must use an active human principal, active agent, and a later
+  expiry when one is supplied. Commit `e4bf448` rejects whitespace-only
+  scope. The focused
+  `tests/test_registry_api.py` check passes **5 passed, 1 upstream warning**.
+- Commit `88a8559d8d07d455166641589665db7873bf3df3` adds `/settings`, a
+  truthful, read-only tenant posture workspace based on existing identity,
+  role, launch-readiness, and connector-readiness contracts. It intentionally
+  does not pretend that mutable IdP, retention, credential, or break-glass
+  administration exists.
+- Commit `146a4887f974b08d9976edddb8952ca372751c3a` adds a draft-only,
+  tenant-scoped policy simulation endpoint. Commit
+  `858a9d1c08a6c2702f980833368b200aaa748ce2` wires its real prediction into
+  the draft-policy workbench. The targeted policy/API suite passed **16
+  passed**.
+- Commit `cd3f88d` adds an Observability operational-attention section driven
+  by real reconciliation, execution-ledger, audit-integrity, and
+  process-local runtime data. It explicitly labels this a derived view rather
+  than a durable alerting or paging system.
+- Frontend `npm run typecheck`, `npm run lint`, and `npm run build` passed for
+  the observability and delegation UI checkpoints. All of the above is on
+  `codex/unverified-working-tree-20260917`, pushed, unmerged, and not a
+  production or market-validation claim.
+
 ## Backlog Closure (W1–W18) — 8 September 2026
 The historical/pending-work backlog sprint is closed for engineering. See `docs/OLD_WORK_BACKLOG_CLOSURE_REPORT.md` for the authoritative W1–W18 audit.
 - Migration head: `20260909_0005` (adds FK on `audit_events.actor_id`; verified fresh/existing on PG16).
@@ -134,8 +168,8 @@ Next.js (frontend) · FastAPI (backend) · PostgreSQL 16 (authoritative) · SQLA
 
 ## 5. Database State
 
-- Migration head: `20260909_0005` (adds FK on `audit_events.actor_id`). Fresh-DB and existing-DB upgrades verified on PostgreSQL 16; seed is idempotent; migration is additive/non-destructive.
-- Tables (15): tenants, principals, agents, delegations, tools, actions, resources, policies, policy_rules, action_requests, decisions, approval_requests, audit_events, financial_executions, webhook_events.
+- Migration head: `20260918_0009` (adds nullable `approval_requests.decision_reason`). The historical PostgreSQL migration rehearsal was verified through `0005`; fresh and upgrade-path verification through `0009` remains required before Phase 0 closure. Seed is idempotent; migrations are additive/non-destructive.
+- Tables (17): tenants, principals, principal_roles, agents, delegations, tools, actions, resources, policies, policy_rules, action_requests, decisions, approval_requests, audit_events, financial_executions, reconciliation_jobs, webhook_events.
 - Tenant integrity (verified on live DB): 0 tenant mismatches across decisions/approvals/audits/ledger vs owning action request; 0 agent-owner cross-tenant mismatches; every action request has decisions; every APPROVED approval has an EXECUTION_SUCCEEDED audit; every SUCCEEDED ledger row has the execution audit. One historical pre-ledger execution audit exists (executed before the ledger existed) with no ledger row — do not fabricate a backfill.
 - `Decision` and `FinancialExecution` are tenant-owned (NOT NULL FK → tenants).
 - Risk model distinction: persisted `RiskClassification` enum = LOW/MEDIUM/HIGH; runtime tier string = LOW/MEDIUM/HIGH/CRITICAL (score ≥75). CRITICAL is never a persisted enum.
@@ -149,11 +183,14 @@ Next.js (frontend) · FastAPI (backend) · PostgreSQL 16 (authoritative) · SQLA
 
 ## 7. Test Truth
 
-- Review branch: backend suite: **399 passed / 8 skipped / 1 warning / 0
-  failed**. The remaining warning is Starlette's upstream `BlockingPortal`
-  deprecation; test code no longer uses deprecated `datetime.utcnow()`.
-- Frontend: `npm run typecheck`, `npm run lint`, and `npm run build` PASS; the
-  production build completes all 24 routes.
+- Last completed full review-branch backend checkpoint: commit `46f3925`
+  recorded **401 passed / 8 skipped / 3 warnings / 0 failed**. Later focused
+  registry safeguards through `e4bf448` pass **5 tests**. The full suite has not
+  yet completed again after that later commit in the available process window,
+  so a current full-suite pass is not claimed.
+- Frontend: `npm run typecheck`, `npm run lint`, and `npm run build` passed at
+  the later `cd3f88d` and `eee1f94` UI checkpoints. Browser E2E and
+  accessibility automation remain absent and are not claimed complete.
 - Historical note: the Phase 1 forensic-audit checkpoint recorded 326 passing
   tests. It is not the current review-branch test count. Security gap tests
   cover rate limiting, token expiry, approval expiry, suspended principal,
