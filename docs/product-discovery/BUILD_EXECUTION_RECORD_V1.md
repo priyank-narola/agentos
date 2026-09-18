@@ -52,7 +52,7 @@ authorized by this record.
 
 Latest full backend run on `codex/unverified-working-tree-20260917`:
 **399 passed, 8 skipped, 1 upstream warning**. Frontend typecheck, lint, and
-the 21-route production build pass. These are branch verification facts only;
+the 24-route production build pass. These are branch verification facts only;
 they do not validate demand, certify production readiness, or authorize a
 merge/deployment. Docker and a real PostgreSQL deployment rehearsal have not
 been run in this environment.

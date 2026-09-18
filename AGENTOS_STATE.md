@@ -56,7 +56,7 @@ verification and an exact commit or PR reference.
   that could contain provider, request, or connection detail.
 - On the review branch, the complete backend suite has since been re-run with
   `399 passed, 8 skipped, 1 warning` (no failures). Frontend typecheck, lint,
-  and the 21-route production build also pass. These are review-branch
+  and the 24-route production build also pass. These are review-branch
   verification facts, not evidence of customer validation or authorization to
   merge/deploy.
 
@@ -119,7 +119,7 @@ Next.js (frontend) · FastAPI (backend) · PostgreSQL 16 (authoritative) · SQLA
   failed**. The remaining warning is Starlette's upstream `BlockingPortal`
   deprecation; test code no longer uses deprecated `datetime.utcnow()`.
 - Frontend: `npm run typecheck`, `npm run lint`, and `npm run build` PASS; the
-  production build completes all 21 routes.
+  production build completes all 24 routes.
 - Historical note: the Phase 1 forensic-audit checkpoint recorded 326 passing
   tests. It is not the current review-branch test count. Security gap tests
   cover rate limiting, token expiry, approval expiry, suspended principal,
