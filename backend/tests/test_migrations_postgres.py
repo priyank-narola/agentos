@@ -58,6 +58,7 @@ EXPECTED_TABLES = {
     "approval_requests",
     "audit_events",
     "financial_executions",
+    "reconciliation_jobs",
     "webhook_events",
 }
 
@@ -142,6 +143,8 @@ def test_fresh_database_upgrades_and_seed_is_idempotent(db_url):
         assert decision_cols.get("tenant_id") is False
         fin_cols = {c["name"]: c["nullable"] for c in sa.inspect(conn).get_columns("financial_executions")}
         assert fin_cols.get("tenant_id") is False
+        approval_cols = {c["name"]: c["nullable"] for c in sa.inspect(conn).get_columns("approval_requests")}
+        assert approval_cols.get("decision_reason") is True
         principal_fks = sa.inspect(conn).get_foreign_keys("principals")
         assert any(fk["referred_table"] == "tenants" and "tenant_id" in fk["constrained_columns"] for fk in principal_fks)
         decision_fks = sa.inspect(conn).get_foreign_keys("decisions")
@@ -167,8 +170,9 @@ def test_fresh_database_upgrades_and_seed_is_idempotent(db_url):
 
 
 def test_existing_current_database_upgrades_additively_and_backfills_decision_tenant(db_url):
-    # Build the state of the current dev database: schema current at HEAD but
-    # stamped at 0002 and with legacy decisions rows lacking tenant ownership.
+    # Build a legacy upgrade state: current metadata from the historical
+    # bootstrap, stamped at 0002, with legacy decisions lacking tenant
+    # ownership and approval requests lacking the latest decision-reason field.
     _reset_schema(db_url)
     _run_alembic(db_url, "upgrade", "20260824_0002")
 
@@ -183,6 +187,9 @@ def test_existing_current_database_upgrades_additively_and_backfills_decision_te
         assert tenant_fk is not None and tenant_fk["name"] is not None
         conn.execute(sa.text(f"ALTER TABLE decisions DROP CONSTRAINT {tenant_fk['name']}"))
         conn.execute(sa.text("ALTER TABLE decisions DROP COLUMN tenant_id"))
+        approval_columns = {column["name"] for column in sa.inspect(conn).get_columns("approval_requests")}
+        assert "decision_reason" in approval_columns
+        conn.execute(sa.text("ALTER TABLE approval_requests DROP COLUMN decision_reason"))
 
         # Insert legacy rows across two tenants (including decisions with no tenant).
         tenant_a = str(uuid.uuid4())
@@ -251,6 +258,8 @@ def test_existing_current_database_upgrades_additively_and_backfills_decision_te
         assert row is not None and str(row[0]) == tenant_a
         decision_cols = {c["name"]: c["nullable"] for c in sa.inspect(conn).get_columns("decisions")}
         assert decision_cols.get("tenant_id") is False
+        approval_cols = {c["name"]: c["nullable"] for c in sa.inspect(conn).get_columns("approval_requests")}
+        assert approval_cols.get("decision_reason") is True
         decision_fks = sa.inspect(conn).get_foreign_keys("decisions")
         assert any(fk["referred_table"] == "tenants" and "tenant_id" in fk["constrained_columns"] for fk in decision_fks)
         # Default tenant row exists for model-level defaults.
