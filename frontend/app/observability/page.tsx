@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useEffect, useState } from "react";
 
-import { AuditVerify, ObservabilityMetrics, RuntimeOperationsMetrics, TenantPosture, TimelineEvent, api } from "@/lib/api";
+import { AuditVerify, ObservabilityMetrics, ReconciliationCase, RuntimeOperationsMetrics, TenantPosture, TimelineEvent, api } from "@/lib/api";
 import { RegistryShell, StateMessage, StatusPill } from "@/components/registry-shell";
 
 export default function ObservabilityPage() {
@@ -12,12 +12,13 @@ export default function ObservabilityPage() {
   const [audit, setAudit] = useState<AuditVerify | null>(null);
   const [runtime, setRuntime] = useState<RuntimeOperationsMetrics | null>(null);
   const [events, setEvents] = useState<TimelineEvent[]>([]);
+  const [reconciliationCases, setReconciliationCases] = useState<ReconciliationCase[]>([]);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    Promise.all([api.metrics(), api.tenantPosture(), api.auditVerify(), api.timeline(), api.runtimeMetrics()])
-      .then(([m, p, a, t, r]) => {
-        setMetrics(m); setPosture(p); setAudit(a); setEvents(t.events); setRuntime(r);
+    Promise.all([api.metrics(), api.tenantPosture(), api.auditVerify(), api.timeline(), api.runtimeMetrics(), api.reconciliationCases()])
+      .then(([m, p, a, t, r, cases]) => {
+        setMetrics(m); setPosture(p); setAudit(a); setEvents(t.events); setRuntime(r); setReconciliationCases(cases);
       })
       .catch((reason: Error) => setError(reason.message));
   }, []);
@@ -33,6 +34,36 @@ export default function ObservabilityPage() {
 
   const blockedMarkers = ["BLOCKED", "SECURITY_", "TOCTOU", "PAYLOAD_TAMPER", "CROSS_TENANT", "AUTHENTICATION_FAILED", "IDEMPOTENCY_CONFLICT", "CANCELLED", "WEBHOOK"];
   const securityEvents = events.filter((e) => blockedMarkers.some((m) => e.event_type.startsWith(m) || e.event_type.includes(m)));
+  const attentionItems = [
+    {
+      label: "Unconfirmed provider outcomes",
+      value: reconciliationCases.length,
+      detail: "Awaiting a status-only reconciliation check; no action is resubmitted.",
+      href: "/reconciliation",
+      tone: reconciliationCases.length > 0 ? "attention" : "clear",
+    },
+    {
+      label: "Recorded execution failures/timeouts",
+      value: metrics?.execution_failures_timeouts ?? null,
+      detail: "Tenant-wide counter from the execution ledger; it is not a time-window rate.",
+      href: "/evidence",
+      tone: (metrics?.execution_failures_timeouts ?? 0) > 0 ? "attention" : "clear",
+    },
+    {
+      label: "Audit-integrity violations",
+      value: audit?.violation_count ?? null,
+      detail: "Verified hash-chain violations, if any. Investigate with the evidence explorer.",
+      href: "/evidence",
+      tone: (audit?.violation_count ?? 0) > 0 ? "attention" : "clear",
+    },
+    {
+      label: "Process-local HTTP failures",
+      value: runtime?.failed_request_total ?? null,
+      detail: "Since this application process started; it resets on restart and is not central monitoring.",
+      href: "/evidence",
+      tone: (runtime?.failed_request_total ?? 0) > 0 ? "attention" : "clear",
+    },
+  ];
 
   return (
     <RegistryShell title="Observability & audit" eyebrow="Governance evidence">
@@ -71,6 +102,32 @@ export default function ObservabilityPage() {
             </section>
           )}
 
+          <section className="mt-6 border border-hairline bg-surface p-6">
+            <div className="flex flex-wrap items-start justify-between gap-3">
+              <div>
+                <p className="eyebrow">Operational attention</p>
+                <h2 className="mt-1 font-semibold text-ink">Evidence-backed attention signals</h2>
+              </div>
+              <StatusPill value="DERIVED VIEW" />
+            </div>
+            <p className="mt-2 max-w-3xl text-sm leading-6 text-inkSubtle">
+              These are derived from the current tenant’s ledger, audit verification, reconciliation queue, and current process metrics. They are not a paging or alert-delivery system; central alerting remains a launch blocker.
+            </p>
+            <div className="mt-4 grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+              {attentionItems.map((item) => (
+                <Link key={item.label} href={item.href} className="group border border-hairline p-4 transition hover:border-signal focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-signal">
+                  <div className="flex items-start justify-between gap-2">
+                    <p className="text-xs font-medium text-inkSubtle">{item.label}</p>
+                    <StatusPill value={item.tone === "attention" ? "ATTENTION" : "CLEAR"} />
+                  </div>
+                  <p className="tnum mt-3 text-3xl font-semibold tracking-tight text-ink">{item.value ?? "--"}</p>
+                  <p className="mt-3 text-xs leading-5 text-inkFaint">{item.detail}</p>
+                  <p className="mt-3 text-xs font-semibold text-signal group-hover:underline">Review evidence →</p>
+                </Link>
+              ))}
+            </div>
+          </section>
+
           {posture && (
             <section className="mt-6 border border-slate-200 bg-white p-6">
               <h2 className="font-semibold text-ink">Tenant posture</h2>
@@ -85,7 +142,7 @@ export default function ObservabilityPage() {
           <section className="mt-6 border border-slate-200 bg-white p-6">
             <div className="flex items-end justify-between gap-4">
               <h2 className="font-semibold text-ink">Recent audit events</h2>
-              <Link href="/action-requests" className="text-xs font-semibold text-signal hover:underline">Action requests →</Link>
+              <div className="flex gap-4"><Link href="/evidence" className="text-xs font-semibold text-signal hover:underline">Evidence explorer →</Link><Link href="/action-requests" className="text-xs font-semibold text-signal hover:underline">Action requests →</Link></div>
             </div>
             {events.length === 0 ? <div className="mt-4"><StateMessage>No audit events recorded yet.</StateMessage></div> : (
               <ul className="mt-4 space-y-1">
