@@ -12,7 +12,7 @@ approval is **Blocked**.
 | Dashboard | `/` uses observability and governance data | In progress | Validate the full dashboard acceptance journey and accessibility flow. |
 | Action requests | `7646950` plus existing case file | Verified Fact | Browser/E2E coverage remains required. |
 | Preflight | `db6d379` uses `/action-preflight`; `627371a` adds mocked-API browser + axe coverage; `934b731` adds a seeded-sandbox browser/API path | Verified Fact | One backend-integrated path is verified. Broader screen-reader coverage and non-preflight browser paths remain required. |
-| Approval workbench | `46f3925`, `11c93dd` persist a required decision reason; `627371a` browser-tests reason gating/recording | Verified Fact | Backend-integrated E2E, cancellation/expiry, and broader accessibility coverage remain required. |
+| Approval workbench | `46f3925`, `11c93dd` persist a required decision reason; `627371a` browser-tests reason gating/recording; `6e57ebd` verifies the independent sandbox approval route | Verified Fact | Cancellation/expiry and broader accessibility coverage remain required. |
 | Policies | `146a488` draft-only simulation endpoint; `858a9d1` real draft workbench | Verified Fact | Browser/E2E/accessibility coverage and saved regression suites remain required. |
 | Agents and tools | Existing lifecycle routes; `f6c64f4` / `ad3e9f8` source-backed filtering | In progress | Validate lifecycle journeys and accessible keyboard paths. |
 | Delegations | `609c46a` revoke UI; `eee1f94` issue UI; `d0df25b` direct-API safeguards; `e4bf448` rejects blank scope | Verified Fact | Browser/E2E/accessibility coverage remains required; record-level audit provenance is a release-review question. |
@@ -34,8 +34,9 @@ approval is **Blocked**.
   `AGENTOS_TEST_POSTGRES_URL` is available.
 - Frontend typecheck/lint/production build: **Verified Fact** — `934b731`
   passes all three, retains 2 Playwright mocked-API browser flows and an axe
-  scan for preflight, and adds 1 seeded-sandbox backend-integrated preflight
-  path. Full critical-flow coverage and screen-reader testing remain **In
+  scan for preflight, and adds 2 seeded-sandbox backend-integrated paths
+  (preflight and approval). Full critical-flow coverage and screen-reader
+  testing remain **In
   progress**.
 - Production dependency audit: **Verified Fact** — `627371a` ran `npm audit
   --omit=dev --json` with 0 vulnerabilities after the Next/PostCSS/Sharp

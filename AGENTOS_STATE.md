@@ -166,6 +166,14 @@ verification and an exact commit or PR reference.
   not a claim that all backend-integrated browser journeys, PostgreSQL E2E, or
   screen-reader testing are complete.
 
+- Commit `6e57ebdd3a10691a3c93cb892adb28c2ae491927` extends that local,
+  seeded-sandbox browser coverage through the Approval Workbench. It creates a
+  fresh high-risk request, proves that the requester is excluded from eligible
+  approvers, requires a non-empty decision reason, approves as the distinct
+  human reviewer, then verifies both the persisted reason and sandbox
+  execution result. The mock suite now supports either local API port so its
+  isolated regression coverage does not depend on another project’s service.
+
 ## Backlog Closure (W1–W18) — 8 September 2026
 The historical/pending-work backlog sprint is closed for engineering. See `docs/OLD_WORK_BACKLOG_CLOSURE_REPORT.md` for the authoritative W1–W18 audit.
 - Migration head: `20260909_0005` (adds FK on `audit_events.actor_id`; verified fresh/existing on PG16).
@@ -228,8 +236,8 @@ Next.js (frontend) · FastAPI (backend) · PostgreSQL 16 (authoritative) · SQLA
   safeguards through `e4bf448` also pass **5 tests**.
 - Frontend: `npm run typecheck`, `npm run lint`, and `npm run build` passed at
   the later seeded-backend browser checkpoint, alongside 2 mocked-API browser
-  flows with a scoped axe scan and 1 seeded-sandbox backend-integrated
-  preflight flow. Backend-integrated approval and other critical workflows,
+  flows with a scoped axe scan and 2 seeded-sandbox backend-integrated flows
+  (preflight and approval). Other critical workflows,
   screen-reader testing, and broad coverage remain absent and are not claimed
   complete.
 - Historical note: the Phase 1 forensic-audit checkpoint recorded 326 passing
