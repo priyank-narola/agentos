@@ -150,3 +150,30 @@ test("policy workbench simulates a fresh draft without publishing or creating an
   const actionsAfter = await request.get(`${SANDBOX_API}/api/v1/action-requests`);
   expect((await actionsAfter.json() as unknown[]).length).toBe(actionCountBefore);
 });
+
+test("delegations workbench issues and revokes exact sandbox authority", async ({ page, request }) => {
+  const scope = `playwright.sandbox.${Date.now()}`;
+  await page.addInitScript(() => {
+    window.__AGENTOS_API_BASE_URL__ = "http://127.0.0.1:8100";
+  });
+  await page.goto("/delegations");
+
+  await page.getByRole("textbox", { name: "Exact scope" }).fill(scope);
+  await page.getByLabel(/I confirm this is a least-privilege authority grant/i).check();
+  await page.getByRole("button", { name: "Issue delegation" }).click();
+  await expect(page.getByText("Delegation issued. Only the named agent, principal, and exact scope are authorized.")).toBeVisible();
+
+  const issued = await request.get(`${SANDBOX_API}/api/v1/delegations`);
+  expect(issued.ok()).toBeTruthy();
+  const delegation = (await issued.json() as Array<{ id: string; scope: string; status: string }>).find((item) => item.scope === scope);
+  expect(delegation?.status).toBe("ACTIVE");
+
+  const row = page.getByText(scope, { exact: true }).locator("xpath=..");
+  page.once("dialog", (dialog) => dialog.accept());
+  await row.getByRole("button", { name: "Revoke" }).click();
+  await expect(page.getByText(/Delegation revoked\. Future governed requests/i)).toBeVisible();
+
+  const revoked = await request.get(`${SANDBOX_API}/api/v1/delegations/${delegation!.id}`);
+  expect(revoked.ok()).toBeTruthy();
+  expect((await revoked.json() as { status: string }).status).toBe("REVOKED");
+});
