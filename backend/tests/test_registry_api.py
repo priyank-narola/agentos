@@ -55,6 +55,9 @@ def test_registry_crud_and_lifecycle() -> None:
     assert client.get(f"/api/v1/resources/{resource['id']}").status_code == 200
     delegation = client.post("/api/v1/delegations", json={"principal_id": principal["id"], "agent_id": created["id"], "scope": "registry.read", "issued_at": "2026-08-22T12:00:00Z", "metadata": {"source": "test"}}).json()
     assert delegation["scope"] == "registry.read"
+    revoked = client.post(f"/api/v1/delegations/{delegation['id']}/revoke")
+    assert revoked.status_code == 200 and revoked.json()["status"] == "REVOKED"
+    assert client.post(f"/api/v1/delegations/{delegation['id']}/revoke").status_code == 409
 
 
 def test_registry_rejects_unknown_relationships() -> None:

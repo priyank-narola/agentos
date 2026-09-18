@@ -10,6 +10,7 @@ export default function DelegationsPage() {
   const [agents, setAgents] = useState<Agent[]>([]);
   const [principals, setPrincipals] = useState<Principal[]>([]);
   const [error, setError] = useState<string | null>(null);
+  const [revoking, setRevoking] = useState<string | null>(null);
 
   useEffect(() => {
     Promise.all([api.delegations(), api.agents(), api.principals()])
@@ -19,6 +20,13 @@ export default function DelegationsPage() {
 
   const agentName = (id: string) => agents.find((a) => a.id === id)?.name ?? id;
   const principalName = (id: string) => principals.find((p) => p.id === id)?.name ?? id;
+  const revoke = async (delegation: Delegation) => {
+    if (!window.confirm(`Revoke ${delegation.scope} authority? Future governed requests will be blocked.`)) return;
+    setRevoking(delegation.id); setError(null);
+    try { const updated = await api.revokeDelegation(delegation.id); setDelegations((current) => current.map((item) => item.id === updated.id ? updated : item)); }
+    catch (reason) { setError(reason instanceof Error ? reason.message : "Unable to revoke delegation."); }
+    finally { setRevoking(null); }
+  };
 
   return (
     <RegistryShell title="Delegations" eyebrow="Delegated authority">
@@ -30,7 +38,7 @@ export default function DelegationsPage() {
       {delegations.length > 0 && (
         <div className="overflow-hidden border border-slate-200 bg-white">
           <div className="grid grid-cols-[1.2fr_1.2fr_1fr_0.7fr_0.8fr] gap-4 border-b border-slate-200 bg-slate-50 px-5 py-3 text-xs font-semibold uppercase tracking-wide text-slate-500">
-            <span>Agent</span><span>Granted by (principal)</span><span>Scope</span><span>Status</span><span>Expires</span>
+              <span>Agent</span><span>Granted by (principal)</span><span>Scope</span><span>Status</span><span>Expires / control</span>
           </div>
           {delegations.map((d) => (
             <div key={d.id} className="grid grid-cols-[1.2fr_1.2fr_1fr_0.7fr_0.8fr] gap-4 border-b border-slate-100 px-5 py-4 text-sm last:border-0">
@@ -38,7 +46,7 @@ export default function DelegationsPage() {
               <span className="text-slate-600">{principalName(d.principal_id)}</span>
               <span className="font-mono text-slate-600">{d.scope}</span>
               <span><StatusPill value={d.status} /></span>
-              <span className="text-xs text-slate-400">{d.expires_at ? new Date(d.expires_at).toLocaleString() : "Never"}</span>
+              <span className="text-xs text-slate-400">{d.expires_at ? new Date(d.expires_at).toLocaleString() : "Never"}{d.status === "ACTIVE" && <button type="button" onClick={() => void revoke(d)} disabled={revoking !== null} className="mt-2 block text-xs font-semibold text-rose-700 outline-none hover:underline focus-visible:ring-2 focus-visible:ring-focusRing disabled:opacity-50">{revoking === d.id ? "Revoking…" : "Revoke"}</button>}</span>
             </div>
           ))}
         </div>

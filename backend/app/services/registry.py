@@ -3,7 +3,7 @@ from uuid import UUID
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from app.db.models import Action, Agent, AgentStatus, Delegation, Principal, Resource, Tool
+from app.db.models import Action, Agent, AgentStatus, Delegation, DelegationStatus, Principal, Resource, Tool
 from app.repositories.registry import RegistryRepository
 from app.schemas import (
     ActionCreate,
@@ -159,6 +159,15 @@ class RegistryService:
         if tenant_id is not None:
             stmt = stmt.where(Delegation.tenant_id == tenant_id)
         return list(self.db.scalars(stmt).all())
+
+    def revoke_delegation(self, record_id: UUID, tenant_id: UUID | None = None) -> Delegation | None:
+        record = self.get_delegation(record_id, tenant_id=tenant_id)
+        if record is None:
+            return None
+        if record.status == DelegationStatus.REVOKED:
+            raise RegistryValidationError("Delegation is already revoked")
+        record.status = DelegationStatus.REVOKED
+        return self.repository.save(record)
 
     def get_delegation(self, record_id: UUID, tenant_id: UUID | None = None) -> Delegation | None:
         return self.repository.get(Delegation, record_id, tenant_id=tenant_id)

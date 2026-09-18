@@ -246,3 +246,14 @@ def get_delegation(delegation_id: UUID, request: Request, registry: RegistryServ
     if delegation is None:
         raise not_found("Delegation")
     return delegation
+
+
+@router.post("/delegations/{delegation_id}/revoke", response_model=DelegationSchema, dependencies=[Depends(registry_writer_required)])
+def revoke_delegation(delegation_id: UUID, request: Request, registry: RegistryService = Depends(service)) -> Delegation:
+    try:
+        delegation = registry.revoke_delegation(delegation_id, tenant_id=tenant_of(request))
+    except RegistryValidationError as error:
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=str(error)) from error
+    if delegation is None:
+        raise not_found("Delegation")
+    return delegation
