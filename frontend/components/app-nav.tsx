@@ -38,6 +38,7 @@ export const NAV_GROUPS: NavGroup[] = [
       { label: "Agents", href: "/agents", hint: "Registered agent identities" },
       { label: "Delegations", href: "/delegations", hint: "Authority granted by principals" },
       { label: "Access control", href: "/access", hint: "Tenant roles for operators and reviewers" },
+      { label: "Tenant settings", href: "/settings", hint: "Secret-free identity, connector, and release posture" },
     ],
   },
   {
