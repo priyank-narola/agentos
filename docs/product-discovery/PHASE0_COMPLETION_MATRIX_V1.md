@@ -11,8 +11,8 @@ approval is **Blocked**.
 | --- | --- | --- | --- |
 | Dashboard | `/` uses observability and governance data | In progress | Validate the full dashboard acceptance journey and accessibility flow. |
 | Action requests | `7646950` plus existing case file | Verified Fact | Browser/E2E coverage remains required. |
-| Preflight | `db6d379` uses `/action-preflight` only | Verified Fact | Browser/E2E coverage remains required. |
-| Approval workbench | `46f3925`, `11c93dd` persist a required decision reason | Verified Fact | Add acceptance/E2E/accessibility coverage; cancellation/expiry semantics must remain clear. |
+| Preflight | `db6d379` uses `/action-preflight`; `627371a` adds mocked-API browser + axe coverage | Verified Fact | Backend-integrated E2E and broader screen-reader coverage remain required. |
+| Approval workbench | `46f3925`, `11c93dd` persist a required decision reason; `627371a` browser-tests reason gating/recording | Verified Fact | Backend-integrated E2E, cancellation/expiry, and broader accessibility coverage remain required. |
 | Policies | `146a488` draft-only simulation endpoint; `858a9d1` real draft workbench | Verified Fact | Browser/E2E/accessibility coverage and saved regression suites remain required. |
 | Agents and tools | Existing lifecycle routes; `f6c64f4` / `ad3e9f8` source-backed filtering | In progress | Validate lifecycle journeys and accessible keyboard paths. |
 | Delegations | `609c46a` revoke UI; `eee1f94` issue UI; `d0df25b` direct-API safeguards; `e4bf448` rejects blank scope | Verified Fact | Browser/E2E/accessibility coverage remains required; record-level audit provenance is a release-review question. |
@@ -30,9 +30,13 @@ approval is **Blocked**.
   skipped, 3 upstream/deprecation warnings, 0 failures (40.29 seconds).
 - Database migrations: **In progress** — migration `20260918_0009` exists;
   fresh and upgrade-path verification must be added before Phase 0 closure.
-- Frontend typecheck/lint/production build: **Verified Fact** — completed for
-  `11c93dd`; browser E2E and accessibility suites do not yet exist in the
-  repository and are not claimed complete.
+- Frontend typecheck/lint/production build: **Verified Fact** — `627371a`
+  passes all three, has 2 Playwright mocked-API browser flows, and runs an axe
+  scan for preflight. Backend-integrated E2E, full critical-flow coverage, and
+  screen-reader testing remain **In progress**.
+- Production dependency audit: **Verified Fact** — `627371a` ran `npm audit
+  --omit=dev --json` with 0 vulnerabilities after the Next/PostCSS/Sharp
+  security updates. Repeat this audit in CI/release environments.
 - Full Phase 0 test matrix: **In progress** — no 100% claim is permitted.
 
 ## Phase 1 preparation boundary

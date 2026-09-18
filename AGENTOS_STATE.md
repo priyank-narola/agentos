@@ -128,6 +128,25 @@ verification and an exact commit or PR reference.
   `codex/unverified-working-tree-20260917`, pushed, unmerged, and not a
   production or market-validation claim.
 
+### Review-branch browser, accessibility, and dependency checkpoint — 18 September 2026
+
+- Commit `627371a` introduces local Playwright and axe-core browser coverage
+  for two critical mocked-API journeys: non-persistent action preflight and
+  an approval decision that remains disabled until a reason is supplied, then
+  records that reason through the client contract. The preflight test runs an
+  axe scan over the application `main` region. This is browser regression
+  coverage, not a live-backend or customer-workflow E2E claim.
+- The checkpoint corrects WCAG AA contrast failures detected by axe in shared
+  metadata tokens and the preflight decision summary. It verifies **2/2
+  browser tests**, `npm run typecheck`, `npm run lint`, and the 23-route
+  production build.
+- The production dependency audit initially exposed critical Next.js 15.5.23
+  advisories. The checkpoint upgrades Next.js and its ESLint configuration to
+  15.5.24 and applies narrowly scoped PostCSS 8.5.28 and Sharp 0.35.4
+  overrides. `npm audit --omit=dev --json` then returned **0 production
+  vulnerabilities**. This is a dependency snapshot, not a substitute for a
+  continuing release-time audit or an independent security review.
+
 ## Backlog Closure (W1–W18) — 8 September 2026
 The historical/pending-work backlog sprint is closed for engineering. See `docs/OLD_WORK_BACKLOG_CLOSURE_REPORT.md` for the authoritative W1–W18 audit.
 - Migration head: `20260909_0005` (adds FK on `audit_events.actor_id`; verified fresh/existing on PG16).
@@ -189,8 +208,10 @@ Next.js (frontend) · FastAPI (backend) · PostgreSQL 16 (authoritative) · SQLA
   deprecations exercised by approval API tests. Later focused registry
   safeguards through `e4bf448` also pass **5 tests**.
 - Frontend: `npm run typecheck`, `npm run lint`, and `npm run build` passed at
-  the later `cd3f88d` and `eee1f94` UI checkpoints. Browser E2E and
-  accessibility automation remain absent and are not claimed complete.
+  the later `627371a` checkpoint, alongside 2 mocked-API browser flows and a
+  scoped axe scan. Backend-integrated browser E2E, screen-reader testing, and
+  coverage of all critical workflows remain absent and are not claimed
+  complete.
 - Historical note: the Phase 1 forensic-audit checkpoint recorded 326 passing
   tests. It is not the current review-branch test count. Security gap tests
   cover rate limiting, token expiry, approval expiry, suspended principal,
