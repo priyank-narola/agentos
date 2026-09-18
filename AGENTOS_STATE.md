@@ -1,6 +1,6 @@
 # AGENTOS — CURRENT STATE LOCK (Canonical Project State)
 
-**Version:** 1.6 — 17 September 2026
+**Version:** 1.7 — 18 September 2026
 **Status:** CURRENT (canonical). Companion to `AGENTOS_OPERATING_PROMPT.md`.
 **Verified baseline:** Git `main` @ `332e68c65b2ba1d888707f0031fe83a7be3fbd2b` (governance UX redesign, Intelligence V2, and security-audit fixes).
 **Update rule:** This file is authoritative until a new verified audit changes it. Any agent updating it must verify against source, DB, runtime, and executed tests first, and record the new Git checkpoint.
@@ -59,6 +59,20 @@ verification and an exact commit or PR reference.
   and the 24-route production build also pass. These are review-branch
   verification facts, not evidence of customer validation or authorization to
   merge/deploy.
+
+### Review-branch UI evidence checkpoint — 18 September 2026
+
+- Commit `c9843a654f3c2416b6d3c1e2f64ac2008f1241a3` adds `/evidence`, a
+  current-tenant Evidence / Audit Explorer built only on the existing
+  action-request, approval, observability-timeline, and server-produced
+  evidence-export contracts. It supports search plus outcome/risk/time
+  filtering, causal-chain inspection, integrity metadata, and JSON export.
+  The UI labels the environment sandbox/test-only and never implies live money
+  movement.
+- Verification for this UI checkpoint: `npm run typecheck`, `npm run lint`,
+  and `npm run build` pass. The production build completes 25 routes.
+- This remains review-branch UI work, not production readiness, customer
+  validation, permission for external exposure, or permission to merge.
 
 ## Backlog Closure (W1–W18) — 8 September 2026
 The historical/pending-work backlog sprint is closed for engineering. See `docs/OLD_WORK_BACKLOG_CLOSURE_REPORT.md` for the authoritative W1–W18 audit.
