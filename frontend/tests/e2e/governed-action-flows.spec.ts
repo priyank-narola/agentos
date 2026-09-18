@@ -1,7 +1,9 @@
 import AxeBuilder from "@axe-core/playwright";
-import { expect, test, type Page } from "@playwright/test";
+import { expect, test, type Page, type Route } from "@playwright/test";
 
-const apiOrigin = "http://localhost:8000";
+// The local demo can use a dedicated AgentOS port when another project owns
+// localhost:8000. Keep mock coverage independent of that developer setting.
+const apiOrigins = ["http://localhost:8000", "http://127.0.0.1:8100"];
 const now = "2026-09-18T09:00:00.000Z";
 
 const agent = { id: "agent-1", name: "Billing guard", owner_principal_id: "requester-1", purpose: "Proposes governed billing actions", version: "1.0.0", status: "ACTIVE", risk_classification: "HIGH" };
@@ -43,7 +45,7 @@ const preflight = {
 
 async function routeApi(page: Page, onApprove?: (body: unknown) => void) {
   let decidedApproval: Record<string, unknown> | null = null;
-  await page.route(`${apiOrigin}/api/v1/**`, async (route) => {
+  const handler = async (route: Route) => {
     const path = new URL(route.request().url()).pathname;
     const method = route.request().method();
     const json = (body: unknown) => route.fulfill({ contentType: "application/json", body: JSON.stringify(body) });
@@ -68,7 +70,8 @@ async function routeApi(page: Page, onApprove?: (body: unknown) => void) {
     if (path === "/api/v1/approvals") return json(decidedApproval ? [decidedApproval] : [pendingApproval]);
     if (path === "/api/v1/action-requests/request-1") return json({ ...request, execution_status: decidedApproval ? "EXECUTED" : "NOT_EXECUTED" });
     return route.fulfill({ status: 404, contentType: "application/json", body: JSON.stringify({ detail: `Unhandled test API route: ${path}` }) });
-  });
+  };
+  await Promise.all(apiOrigins.map((origin) => page.route(`${origin}/api/v1/**`, handler)));
 }
 
 test("preflight renders a keyboard-accessible, non-persistent governed decision preview", async ({ page }) => {
