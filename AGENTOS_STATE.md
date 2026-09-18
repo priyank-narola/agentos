@@ -147,6 +147,25 @@ verification and an exact commit or PR reference.
   vulnerabilities**. This is a dependency snapshot, not a substitute for a
   continuing release-time audit or an independent security review.
 
+### Review-branch seeded-backend browser checkpoint — 18 September 2026
+
+- Commit `934b731a8ed1d8444a164701488ed1859f764924` adds a separate Playwright integration route for the
+  Action Preflight workspace. It provisions no shared state: the verification
+  uses a disposable, locally migrated and seeded SQLite sandbox API, then
+  drives the browser through the actual catalog and `/action-preflight` API.
+  The assertion proves that a `FinanceAgent` bank transfer is rendered as
+  `REQUIRE_APPROVAL` with the real human-revalidation execution route. The
+  ordinary mocked browser suite deliberately excludes this fixture-dependent
+  test and remains independently runnable.
+- Verification for this checkpoint: the fresh local migration chain reached
+  `20260918_0009`; the idempotent seed produced allow, deny, approved,
+  rejected, and pending flows using only the in-process sandbox provider;
+  `npm run test:e2e:integration` passed **1/1**, while `npm run test:e2e`
+  passed **2/2**, `npm run typecheck` and `npm run lint` passed, and the
+  23-route production build passed. This is one browser/API contract path,
+  not a claim that all backend-integrated browser journeys, PostgreSQL E2E, or
+  screen-reader testing are complete.
+
 ## Backlog Closure (W1–W18) — 8 September 2026
 The historical/pending-work backlog sprint is closed for engineering. See `docs/OLD_WORK_BACKLOG_CLOSURE_REPORT.md` for the authoritative W1–W18 audit.
 - Migration head: `20260909_0005` (adds FK on `audit_events.actor_id`; verified fresh/existing on PG16).
@@ -187,7 +206,7 @@ Next.js (frontend) · FastAPI (backend) · PostgreSQL 16 (authoritative) · SQLA
 
 ## 5. Database State
 
-- Migration head: `20260918_0009` (adds nullable `approval_requests.decision_reason`). The historical PostgreSQL migration rehearsal was verified through `0005`; fresh and upgrade-path verification through `0009` remains required before Phase 0 closure. Seed is idempotent; migrations are additive/non-destructive.
+- Migration head: `20260918_0009` (adds nullable `approval_requests.decision_reason`). Static migration tests now cover fresh schema expectations and an upgrade path through `0009`; actual PostgreSQL execution through that head remains required before Phase 0 closure because the configured scratch PostgreSQL environment is unavailable. Seed is idempotent; migrations are additive/non-destructive.
 - Tables (17): tenants, principals, principal_roles, agents, delegations, tools, actions, resources, policies, policy_rules, action_requests, decisions, approval_requests, audit_events, financial_executions, reconciliation_jobs, webhook_events.
 - Tenant integrity (verified on live DB): 0 tenant mismatches across decisions/approvals/audits/ledger vs owning action request; 0 agent-owner cross-tenant mismatches; every action request has decisions; every APPROVED approval has an EXECUTION_SUCCEEDED audit; every SUCCEEDED ledger row has the execution audit. One historical pre-ledger execution audit exists (executed before the ledger existed) with no ledger row — do not fabricate a backfill.
 - `Decision` and `FinancialExecution` are tenant-owned (NOT NULL FK → tenants).
@@ -208,9 +227,10 @@ Next.js (frontend) · FastAPI (backend) · PostgreSQL 16 (authoritative) · SQLA
   deprecations exercised by approval API tests. Later focused registry
   safeguards through `e4bf448` also pass **5 tests**.
 - Frontend: `npm run typecheck`, `npm run lint`, and `npm run build` passed at
-  the later `627371a` checkpoint, alongside 2 mocked-API browser flows and a
-  scoped axe scan. Backend-integrated browser E2E, screen-reader testing, and
-  coverage of all critical workflows remain absent and are not claimed
+  the later seeded-backend browser checkpoint, alongside 2 mocked-API browser
+  flows with a scoped axe scan and 1 seeded-sandbox backend-integrated
+  preflight flow. Backend-integrated approval and other critical workflows,
+  screen-reader testing, and broad coverage remain absent and are not claimed
   complete.
 - Historical note: the Phase 1 forensic-audit checkpoint recorded 326 passing
   tests. It is not the current review-branch test count. Security gap tests
