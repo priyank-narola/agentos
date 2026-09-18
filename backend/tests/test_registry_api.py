@@ -73,6 +73,7 @@ def test_delegation_requires_active_human_and_active_agent() -> None:
     payload = {"principal_id": principal["id"], "agent_id": agent["id"], "scope": "guarded.read", "issued_at": "2026-08-22T12:00:00Z"}
 
     assert client.post("/api/v1/delegations", json={**payload, "expires_at": "2026-08-22T12:00:00Z"}).status_code == 400
+    assert client.post("/api/v1/delegations", json={**payload, "scope": "   "}).status_code == 400
     assert client.post(f"/api/v1/agents/{agent['id']}/suspend").status_code == 200
     assert client.post("/api/v1/delegations", json=payload).status_code == 400
 

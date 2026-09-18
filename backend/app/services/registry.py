@@ -159,8 +159,11 @@ class RegistryService:
         expires_at = self._as_utc(payload.expires_at) if payload.expires_at else None
         if expires_at and expires_at <= issued_at:
             raise RegistryValidationError("expires_at must be later than issued_at")
+        scope = payload.scope.strip()
+        if not scope:
+            raise RegistryValidationError("scope must contain non-whitespace characters")
         data = payload.model_dump()
-        data["scope"] = payload.scope.strip()
+        data["scope"] = scope
         data["issued_at"] = issued_at
         data["expires_at"] = expires_at
         data["metadata_"] = data.pop("metadata")
