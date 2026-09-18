@@ -177,3 +177,21 @@ test("delegations workbench issues and revokes exact sandbox authority", async (
   expect(revoked.ok()).toBeTruthy();
   expect((await revoked.json() as { status: string }).status).toBe("REVOKED");
 });
+
+test("evidence explorer renders a server-produced sandbox audit chain", async ({ page, request }) => {
+  const actions = await request.get(`${SANDBOX_API}/api/v1/action-requests`);
+  expect(actions.ok()).toBeTruthy();
+  const actionRecords = await actions.json() as Array<{ id: string }>;
+  expect(actionRecords.length).toBeGreaterThan(0);
+
+  await page.addInitScript(() => {
+    window.__AGENTOS_API_BASE_URL__ = "http://127.0.0.1:8100";
+  });
+  await page.goto("/evidence");
+
+  await expect(page.getByRole("heading", { name: "Trace a governed action from intent to outcome" })).toBeVisible();
+  await expect(page.getByText("Evidence bundle", { exact: true })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Recorded causal chain" })).toBeVisible();
+  await expect(page.getByText("Integrity metadata", { exact: true })).toBeVisible();
+  await expect(page.getByText(/Sandbox\/test-mode evidence/i)).toBeVisible();
+});
