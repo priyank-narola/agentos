@@ -70,9 +70,9 @@ export default function ReconciliationPage() {
   return (
     <RegistryShell title="Reconciliation" eyebrow="Uncertain execution outcomes">
       <div className="mb-6 flex flex-wrap items-start justify-between gap-4">
-        <p className="max-w-3xl text-sm leading-6 text-inkSubtle">
+        <div className="max-w-3xl"><p className="text-sm leading-6 text-inkSubtle">
           When a provider timeout or unclear response leaves an action uncertain, check its durable provider reference. This screen never retries the original action. An independent human records the readback, and an unresolved result stays visible for follow-up.
-        </p>
+        </p><p className="mt-2 text-xs leading-5 text-inkFaint">A confirmed irreversible outcome is never described as undone. If remediation is needed, create a separate governed correction action with its own policy, approval, execution receipt, and evidence.</p></div>
         <span className="rounded-full border border-warningBorder bg-warningBg px-3 py-1 text-xs font-medium text-warning">
           {cases.length} open {cases.length === 1 ? "case" : "cases"}
         </span>
@@ -131,11 +131,16 @@ export default function ReconciliationPage() {
                     type="button"
                     onClick={() => void reconcile(item)}
                     disabled={checking === item.action_request_id}
-                    className="rounded-control bg-signal px-3.5 py-2 text-[13px] font-semibold text-white transition hover:bg-signalHover disabled:cursor-not-allowed disabled:opacity-60"
+                    className="rounded-control bg-signal px-3.5 py-2 text-[13px] font-semibold text-white outline-none transition hover:bg-signalHover focus-visible:ring-2 focus-visible:ring-focusRing focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-60"
                   >
                     {checking === item.action_request_id ? "Checking provider…" : "Check provider outcome"}
                   </button>
                 </div>
+              </div>
+              <div className="mt-4 rounded-card border border-hairline bg-surfaceMuted p-4">
+                <p className="text-xs font-semibold text-ink">If the recorded outcome needs remediation</p>
+                <p className="mt-1 max-w-3xl text-xs leading-5 text-inkSubtle">Do not retry or attempt to reverse this action from reconciliation. First confirm the provider outcome, then start a distinct correction action through preflight so its impact, policy route, independent approval, and evidence are recorded separately.</p>
+                <Link href="/policy-evaluation" className="mt-3 inline-block text-xs font-semibold text-signal outline-none hover:text-signalHover focus-visible:ring-2 focus-visible:ring-focusRing">Start a correction-action preflight →</Link>
               </div>
             </article>
           );
