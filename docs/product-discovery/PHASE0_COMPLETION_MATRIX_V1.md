@@ -26,7 +26,8 @@ approval is **Blocked**.
 - Backend unit/API/service/security: **Verified Fact** — `46f3925` ran 401
   passing tests, 8 skipped, with 3 upstream/deprecation warnings. `e4bf448`
   subsequently ran `tests/test_registry_api.py`: 5 passed, 1 upstream warning.
-  A new full-suite result after `e4bf448` is **In progress** and not claimed.
+  A current full-suite run after `e4bf448` is **Verified Fact**: 402 passed, 8
+  skipped, 3 upstream/deprecation warnings, 0 failures (40.29 seconds).
 - Database migrations: **In progress** — migration `20260918_0009` exists;
   fresh and upgrade-path verification must be added before Phase 0 closure.
 - Frontend typecheck/lint/production build: **Verified Fact** — completed for

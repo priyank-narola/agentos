@@ -183,11 +183,11 @@ Next.js (frontend) · FastAPI (backend) · PostgreSQL 16 (authoritative) · SQLA
 
 ## 7. Test Truth
 
-- Last completed full review-branch backend checkpoint: commit `46f3925`
-  recorded **401 passed / 8 skipped / 3 warnings / 0 failed**. Later focused
-  registry safeguards through `e4bf448` pass **5 tests**. The full suite has not
-  yet completed again after that later commit in the available process window,
-  so a current full-suite pass is not claimed.
+- Current full review-branch backend checkpoint after `e4bf448`: **402 passed
+  / 8 skipped / 3 warnings / 0 failed** in 40.29 seconds. The warnings are one
+  upstream AnyIO `BlockingPortal` deprecation and two Starlette status-constant
+  deprecations exercised by approval API tests. Later focused registry
+  safeguards through `e4bf448` also pass **5 tests**.
 - Frontend: `npm run typecheck`, `npm run lint`, and `npm run build` passed at
   the later `cd3f88d` and `eee1f94` UI checkpoints. Browser E2E and
   accessibility automation remain absent and are not claimed complete.
