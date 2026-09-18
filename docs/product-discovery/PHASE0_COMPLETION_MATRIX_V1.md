@@ -13,7 +13,7 @@ approval is **Blocked**.
 | Action requests | `7646950` plus existing case file | Verified Fact | Browser/E2E coverage remains required. |
 | Preflight | `db6d379` uses `/action-preflight`; `627371a` adds mocked-API browser + axe coverage; `934b731` adds a seeded-sandbox browser/API path | Verified Fact | One backend-integrated path is verified. Broader screen-reader coverage and non-preflight browser paths remain required. |
 | Approval workbench | `46f3925`, `11c93dd` persist a required decision reason; `627371a` browser-tests reason gating/recording; `6e57ebd` verifies the independent sandbox approval route | Verified Fact | Cancellation/expiry and broader accessibility coverage remain required. |
-| Policies | `146a488` draft-only simulation endpoint; `858a9d1` real draft workbench | Verified Fact | Browser/E2E/accessibility coverage and saved regression suites remain required. |
+| Policies | `146a488` draft-only simulation endpoint; `858a9d1` real draft workbench; `256e442` verifies a real sandbox draft remains unpublished and creates no action | Verified Fact | Broader accessibility coverage and lifecycle regression coverage remain required. |
 | Agents and tools | Existing lifecycle routes; `f6c64f4` / `ad3e9f8` source-backed filtering | In progress | Validate lifecycle journeys and accessible keyboard paths. |
 | Delegations | `609c46a` revoke UI; `eee1f94` issue UI; `d0df25b` direct-API safeguards; `e4bf448` rejects blank scope | Verified Fact | Browser/E2E/accessibility coverage remains required; record-level audit provenance is a release-review question. |
 | Evidence / audit explorer | `c9843a6` uses action, approval, timeline, and evidence APIs | Verified Fact | Add browser/E2E/accessibility coverage. |
