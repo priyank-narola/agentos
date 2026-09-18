@@ -79,6 +79,17 @@ verification and an exact commit or PR reference.
   action fields change. It remains non-persistent, uses the existing
   action-preflight endpoint, exposes policy/risk/approval-route reasoning,
   and labels its sandbox/test-only connector plan truthfully.
+- Commit `08e602d6afc06604f818b3d600207919ba60e492` clarifies the
+  `/reconciliation` operator workflow: it only checks a durable provider
+  outcome and never retries or claims to reverse an action. Where remediation
+  is required, it hands the operator to a distinct correction-action preflight
+  so that any follow-up is separately governed and evidenced.
+- **Unresolved contract gap (not implemented):** approval approve/reject/cancel
+  requests currently contain only `approver_principal_id`. The API/schema,
+  `ApprovalRequest` model, and its audit events contain no durable
+  approver-decision reason. A UI input would be misleading because it could
+  not be persisted; the mandatory-decision-reason requirement is therefore not
+  marked complete under the current backend contract.
 - Verification for this UI checkpoint: `npm run typecheck`, `npm run lint`,
   and `npm run build` pass. The production build completes 25 routes.
 - This remains review-branch UI work, not production readiness, customer
