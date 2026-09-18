@@ -2,6 +2,7 @@
 
 import json
 import logging
+import sys
 
 from app.runtime import JsonLogFormatter, RuntimeMetrics
 
@@ -63,3 +64,27 @@ def test_json_log_formatter_allows_only_safe_operational_extra_fields() -> None:
     assert "parameters" not in payload
     assert "provider_payload" not in payload
     assert "person@example.test" not in json.dumps(payload)
+
+
+def test_json_log_formatter_does_not_emit_exception_message_or_stack() -> None:
+    logger = logging.getLogger("agentos.test")
+    try:
+        raise ValueError("provider response included person@example.test and secret data")
+    except ValueError:
+        record = logger.makeRecord(
+            logger.name,
+            logging.ERROR,
+            __file__,
+            1,
+            "provider request failed",
+            (),
+            exc_info=sys.exc_info(),
+            extra={"event": "provider_request_failed", "provider_payload": {"secret": "do-not-log"}},
+        )
+
+    payload = json.loads(JsonLogFormatter().format(record))
+
+    assert payload["exception_type"] == "ValueError"
+    assert "exception" not in payload
+    assert "person@example.test" not in json.dumps(payload)
+    assert "provider_payload" not in payload
