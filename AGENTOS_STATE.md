@@ -84,12 +84,11 @@ verification and an exact commit or PR reference.
   outcome and never retries or claims to reverse an action. Where remediation
   is required, it hands the operator to a distinct correction-action preflight
   so that any follow-up is separately governed and evidenced.
-- **Unresolved contract gap (not implemented):** approval approve/reject/cancel
-  requests currently contain only `approver_principal_id`. The API/schema,
-  `ApprovalRequest` model, and its audit events contain no durable
-  approver-decision reason. A UI input would be misleading because it could
-  not be persisted; the mandatory-decision-reason requirement is therefore not
-  marked complete under the current backend contract.
+- Commit `46f3925a4a2c083e7e848752b6a19df05f99b6c7` resolves the approval
+  decision-reason contract gap with nullable storage, migration `0009`,
+  approve/reject API validation, response/evidence inclusion, and audit-event
+  capture. Commit `11c93ddaab2596947b0a31d95a9778295ffce9fc` makes the
+  Approval Workbench require the persisted reason and display it after decision.
 - Verification for this UI checkpoint: `npm run typecheck`, `npm run lint`,
   and `npm run build` pass. The production build completes 25 routes.
 - This remains review-branch UI work, not production readiness, customer
