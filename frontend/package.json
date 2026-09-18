@@ -8,7 +8,8 @@
     "start": "next start",
     "lint": "eslint .",
     "typecheck": "tsc --noEmit",
-    "test:e2e": "playwright test"
+    "test:e2e": "playwright test",
+    "test:e2e:integration": "playwright test tests/e2e/real-backend-preflight.spec.ts --config playwright.integration.config.ts"
   },
   "dependencies": {
     "next": "^15.5.24",

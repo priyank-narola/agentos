@@ -1,4 +1,17 @@
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL;
+declare global {
+  interface Window {
+    /**
+     * Local browser-test override. Production configuration remains the
+     * build-time NEXT_PUBLIC_API_BASE_URL value.
+     */
+    __AGENTOS_API_BASE_URL__?: string;
+  }
+}
+
+const localBrowserApiOverride = typeof window !== "undefined" && process.env.NODE_ENV !== "production"
+  ? window.__AGENTOS_API_BASE_URL__
+  : undefined;
+const API_BASE_URL = localBrowserApiOverride ?? process.env.NEXT_PUBLIC_API_BASE_URL;
 
 export class ApiError extends Error {
   status: number;
