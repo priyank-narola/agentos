@@ -66,7 +66,7 @@ class ResolvedRecords:
 class DeterministicPolicyEvaluator:
     """Pure policy decision component. It never persists or executes an action."""
 
-    def evaluate(self, request: EvaluationInput, records: ResolvedRecords) -> PolicyEvaluationResult:
+    def evaluate(self, request: EvaluationInput, records: ResolvedRecords, *, include_non_active_policies: bool = False) -> PolicyEvaluationResult:
         trace: list[EvaluationTraceStep] = []
 
         def add(code: str, outcome: str, detail: str) -> None:
@@ -131,7 +131,7 @@ class DeterministicPolicyEvaluator:
             return self._result("DENY", ReasonCode.RESOURCE_INACTIVE, "Resource is restricted or retired", trace, records)
         add("CAPABILITIES_ACTIVE", "PASS", "Tool, action, and resource are active")
 
-        matched = self._matched_rules(records, request)
+        matched = self._matched_rules(records, request, include_non_active_policies=include_non_active_policies)
         add("POLICY_RULES_RESOLVED", "PASS" if matched else "EMPTY", f"Resolved {len(matched)} matching active policy rules")
         if matched:
             deny = next((rule for rule in matched if rule.rule_effect == PolicyEffect.DENY), None)
@@ -146,10 +146,10 @@ class DeterministicPolicyEvaluator:
         add(ReasonCode.DEFAULT_DENY, "DENY", "No matching allow policy rule was found")
         return self._result("DENY", ReasonCode.DEFAULT_DENY, "No policy rule authorizes this action", trace, records)
 
-    def _matched_rules(self, records: ResolvedRecords, request: EvaluationInput) -> list[MatchedPolicyRule]:
+    def _matched_rules(self, records: ResolvedRecords, request: EvaluationInput, *, include_non_active_policies: bool = False) -> list[MatchedPolicyRule]:
         matched = []
         for policy in records.policies:
-            if policy.status.value != "ACTIVE":
+            if policy.status.value != "ACTIVE" and not include_non_active_policies:
                 continue
             for rule in policy.rules:
                 if rule.action != records.action.name or rule.resource_type != records.resource.resource_type:

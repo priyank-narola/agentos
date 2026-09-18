@@ -41,12 +41,15 @@ def test_policy_crud_and_server_side_evaluation() -> None:
     assert policy.json()["status"] == "DRAFT"
     rule = client.post(f"/api/v1/policies/{policy_id}/rules", json={"effect": "ALLOW", "action": "read_customer", "resource_type": "crm_record", "priority": 10})
     assert rule.status_code == 201
+    client.post("/api/v1/delegations", json={"principal_id": ids["principal"], "agent_id": ids["agent"], "scope": "*", "issued_at": "2026-08-22T12:00:00Z"})
+    payload = {"principal_id": ids["principal"], "agent_id": ids["agent"], "tool_id": ids["tool"], "action_id": ids["action"], "resource_id": ids["resource"], "evaluated_at": "2026-08-22T12:00:00Z"}
+    simulated = client.post(f"/api/v1/policies/{policy_id}/simulate", json=payload)
+    assert simulated.status_code == 200 and simulated.json()["decision"] == "ALLOW"
     published = client.post(f"/api/v1/policies/{policy_id}/publish")
     assert published.status_code == 200
     assert published.json()["status"] == "ACTIVE"
     assert client.get("/api/v1/policies").json()[0]["rules"]
-    client.post("/api/v1/delegations", json={"principal_id": ids["principal"], "agent_id": ids["agent"], "scope": "crm.read", "issued_at": "2026-08-22T12:00:00Z"})
-    result = client.post("/api/v1/policy-evaluations", json={"principal_id": ids["principal"], "agent_id": ids["agent"], "tool_id": ids["tool"], "action_id": ids["action"], "resource_id": ids["resource"], "evaluated_at": "2026-08-22T12:00:00Z"})
+    result = client.post("/api/v1/policy-evaluations", json=payload)
     assert result.status_code == 200
     assert result.json()["decision"] == "ALLOW", result.json()
     assert result.json()["trace"]

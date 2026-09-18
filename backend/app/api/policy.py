@@ -110,6 +110,17 @@ def retire_policy(policy_id: UUID, request: Request, policies: PolicyService = D
     return policy
 
 
+@router.post("/policies/{policy_id}/simulate", response_model=PolicyEvaluationResult, dependencies=[Depends(policy_author_required)])
+def simulate_draft_policy(policy_id: UUID, payload: PolicyEvaluationRequest, request: Request, policies: PolicyService = Depends(service)) -> PolicyEvaluationResult:
+    try:
+        result = policies.simulate_draft(policy_id, payload, tenant_id=tenant_of(request))
+    except RegistryValidationError as error:
+        raise lifecycle_error(error) from error
+    if result is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Policy not found")
+    return result
+
+
 @router.post("/policy-evaluations", response_model=PolicyEvaluationResult)
 def evaluate_policy(payload: PolicyEvaluationRequest, request: Request, policies: PolicyService = Depends(service)) -> PolicyEvaluationResult:
     return policies.evaluate(payload, tenant_id=tenant_of(request))

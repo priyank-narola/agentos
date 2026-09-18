@@ -155,6 +155,7 @@ export const api = {
   publishPolicy: (policyId: string) => request<Policy>(`/api/v1/policies/${policyId}/publish`, { method: "POST" }),
   retirePolicy: (policyId: string) => request<Policy>(`/api/v1/policies/${policyId}/retire`, { method: "POST" }),
   evaluate: (payload: Record<string, unknown>) => request<PolicyEvaluation>('/api/v1/policy-evaluations', { method: "POST", body: JSON.stringify(payload) }),
+  simulatePolicyDraft: (policyId: string, payload: Record<string, unknown>) => request<PolicyEvaluation>(`/api/v1/policies/${policyId}/simulate`, { method: "POST", body: JSON.stringify(payload) }),
   preflight: (payload: Record<string, unknown>) => request<ActionPreflight>("/api/v1/action-preflight", { method: "POST", body: JSON.stringify(payload) }),
   gateway: (payload: Record<string, unknown>) => request<GatewayResponse>("/api/v1/action-requests", { method: "POST", body: JSON.stringify(payload) }),
   actionRequests: () => request<ActionRequest[]>("/api/v1/action-requests"),

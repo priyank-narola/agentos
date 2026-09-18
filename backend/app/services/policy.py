@@ -138,6 +138,17 @@ class PolicyService:
             raise RegistryConflictError("Policy lifecycle update conflicted with another change; refresh and try again") from error
 
     def evaluate(self, payload: PolicyEvaluationRequest, tenant_id: UUID | None = None):
+        return self._evaluate(payload, self.repository.list_active_policies(tenant_id=tenant_id))
+
+    def simulate_draft(self, policy_id: UUID, payload: PolicyEvaluationRequest, tenant_id: UUID | None = None):
+        """Evaluate exactly one draft policy without persisting an action or changing live policy."""
+        policy = self.get_policy(policy_id, tenant_id=tenant_id)
+        if policy is None:
+            return None
+        self._require_draft(policy, "Only an unpublished draft can be simulated")
+        return self._evaluate(payload, [policy], include_non_active_policies=True)
+
+    def _evaluate(self, payload: PolicyEvaluationRequest, policies: list[Policy], *, include_non_active_policies: bool = False):
         principal = self.db.get(Principal, payload.principal_id)
         agent = self.db.get(Agent, payload.agent_id)
         tool = self.db.get(Tool, payload.tool_id)
@@ -146,6 +157,5 @@ class PolicyService:
         if action is not None and tool is not None and action.tool_id != tool.id:
             action = None
         delegations = list(self.db.scalars(select(Delegation).where(Delegation.agent_id == payload.agent_id, Delegation.principal_id == payload.principal_id)).all())
-        policies = self.repository.list_active_policies(tenant_id=tenant_id)
         request = EvaluationInput(principal_id=payload.principal_id, agent_id=payload.agent_id, tool_id=payload.tool_id, action_id=payload.action_id, resource_id=payload.resource_id, parameters=payload.parameters, policy_context=payload.policy_context, evaluated_at=payload.evaluated_at or datetime.now(timezone.utc))
-        return self.evaluator.evaluate(request, ResolvedRecords(principal=principal, agent=agent, tool=tool, action=action, resource=resource, delegations=delegations, policies=policies))
+        return self.evaluator.evaluate(request, ResolvedRecords(principal=principal, agent=agent, tool=tool, action=action, resource=resource, delegations=delegations, policies=policies), include_non_active_policies=include_non_active_policies)
