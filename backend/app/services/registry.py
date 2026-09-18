@@ -1,9 +1,10 @@
+from datetime import timezone
 from uuid import UUID
 
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from app.db.models import Action, Agent, AgentStatus, Delegation, DelegationStatus, Principal, Resource, Tool
+from app.db.models import Action, Agent, AgentStatus, Delegation, DelegationStatus, Principal, PrincipalStatus, PrincipalType, Resource, Tool
 from app.repositories.registry import RegistryRepository
 from app.schemas import (
     ActionCreate,
@@ -146,13 +147,30 @@ class RegistryService:
         return self.repository.save(record)
 
     def create_delegation(self, payload: DelegationCreate, tenant_id: UUID | None = None) -> Delegation | None:
-        if self.get_principal(payload.principal_id, tenant_id=tenant_id) is None or self.get_agent(payload.agent_id, tenant_id=tenant_id) is None:
+        principal = self.get_principal(payload.principal_id, tenant_id=tenant_id)
+        agent = self.get_agent(payload.agent_id, tenant_id=tenant_id)
+        if principal is None or agent is None:
             raise RegistryValidationError("principal_id and agent_id must reference existing records")
+        if principal.type != PrincipalType.HUMAN or principal.status != PrincipalStatus.ACTIVE:
+            raise RegistryValidationError("principal_id must reference an active human principal")
+        if agent.status != AgentStatus.ACTIVE:
+            raise RegistryValidationError("agent_id must reference an active agent")
+        issued_at = self._as_utc(payload.issued_at)
+        expires_at = self._as_utc(payload.expires_at) if payload.expires_at else None
+        if expires_at and expires_at <= issued_at:
+            raise RegistryValidationError("expires_at must be later than issued_at")
         data = payload.model_dump()
+        data["scope"] = payload.scope.strip()
+        data["issued_at"] = issued_at
+        data["expires_at"] = expires_at
         data["metadata_"] = data.pop("metadata")
         if tenant_id is not None:
             data["tenant_id"] = tenant_id
         return self.repository.save(Delegation(**data))
+
+    @staticmethod
+    def _as_utc(value):
+        return value.replace(tzinfo=timezone.utc) if value.tzinfo is None else value.astimezone(timezone.utc)
 
     def list_delegations(self, tenant_id: UUID | None = None) -> list[Delegation]:
         stmt = select(Delegation).order_by(Delegation.issued_at.desc())
