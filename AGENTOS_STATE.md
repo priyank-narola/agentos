@@ -74,6 +74,11 @@ verification and an exact commit or PR reference.
   adds searchable decision evidence, decision/risk/execution filtering,
   visible routing and risk summaries, and direct preflight/test-action entry
   points while preserving the existing detail case file.
+- Commit `db6d37965aa7ca77ed77d1cf29cdee6a95117686` upgrades
+  `/policy-evaluation` to refresh a safe preflight prediction after valid
+  action fields change. It remains non-persistent, uses the existing
+  action-preflight endpoint, exposes policy/risk/approval-route reasoning,
+  and labels its sandbox/test-only connector plan truthfully.
 - Verification for this UI checkpoint: `npm run typecheck`, `npm run lint`,
   and `npm run build` pass. The production build completes 25 routes.
 - This remains review-branch UI work, not production readiness, customer
