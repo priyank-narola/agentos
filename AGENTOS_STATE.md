@@ -47,8 +47,12 @@ verification and an exact commit or PR reference.
   secret, safe limits, and JSON logging. Development and test remain usable
   for local verification. The configuration regression suite now covers both
   safe and unsafe staging settings.
+- Commit `aea82b0` closes a structured-log data-minimisation gap: JSON logs now
+  allow only a small operational field set (`event`, request ID, method, path,
+  status, duration) and ignore arbitrary logging extras such as authorization
+  headers, action parameters, or provider payloads.
 - On the review branch, the complete backend suite has since been re-run with
-  `397 passed, 8 skipped, 1 warning` (no failures). Frontend typecheck, lint,
+  `398 passed, 8 skipped, 1 warning` (no failures). Frontend typecheck, lint,
   and the 21-route production build also pass. These are review-branch
   verification facts, not evidence of customer validation or authorization to
   merge/deploy.
@@ -108,7 +112,7 @@ Next.js (frontend) · FastAPI (backend) · PostgreSQL 16 (authoritative) · SQLA
 
 ## 7. Test Truth
 
-- Review branch: backend suite: **397 passed / 8 skipped / 1 warning / 0
+- Review branch: backend suite: **398 passed / 8 skipped / 1 warning / 0
   failed**. The remaining warning is Starlette's upstream `BlockingPortal`
   deprecation; test code no longer uses deprecated `datetime.utcnow()`.
 - Frontend: `npm run typecheck`, `npm run lint`, and `npm run build` PASS; the
@@ -138,6 +142,9 @@ Next.js (frontend) · FastAPI (backend) · PostgreSQL 16 (authoritative) · SQLA
   HTTPS origins, a configured identity verifier, non-sandbox webhook secret,
   positive bounded limits, and JSON logging before the process starts;
   development/test remain available for local verification.
+- Structured JSON logs are data-minimised through an explicit operational-field
+  allowlist; arbitrary `extra` values such as authorization headers, action
+  parameters, and provider payloads are omitted by regression-tested default.
 - Intelligence boundary: model provider output is advisory only (`is_advisory=True`); model cannot authorize, execute, or approve; provider failure → deterministic fallback (P1-05 fix: failures now logged).
 - Audit trail: `audit_events.actor_id` now has FK → `principals.id` with SET NULL on delete (P2-10 fix, migration 0005).
 
