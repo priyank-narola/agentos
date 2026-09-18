@@ -49,8 +49,15 @@ export const NAV_GROUPS: NavGroup[] = [
       { label: "Capabilities", href: "/tools", hint: "Tools and their actions" },
     ],
   },
-  { label: "Intelligence", href: "/intelligence" },
-  { label: "Observability", href: "/observability" },
+  {
+    label: "Prove",
+    href: "/evidence",
+    items: [
+      { label: "Evidence", href: "/evidence", hint: "Searchable action evidence and immutable exports" },
+      { label: "Observability", href: "/observability", hint: "Decision, execution, and provider-health signals" },
+      { label: "Intelligence", href: "/intelligence", hint: "Advisory risk and policy analysis" },
+    ],
+  },
 ];
 
 /** Developer / test surfaces — reachable, but deliberately subordinate. */
