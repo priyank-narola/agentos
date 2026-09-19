@@ -22,8 +22,19 @@
   project, work-item, run/routine, and budget domains. The existing gateway,
   policy, approval, execution ledger, reconciliation, and evidence systems
   remain the exclusive protected-action boundary.
-- Status: **IMPLEMENTATION AUTHORIZED ON REVIEW BRANCH; W0 research complete
-  only after the commit recording this section.** No merge to `main`, external
+- Research checkpoint: commit `7762b93` records the license, architecture,
+  user-flow, and integration assessment. It is pushed to the review branch.
+- Workforce W1 checkpoint: commit `b81baba` adds additive migration
+  `20260919_0010`, tenant-scoped goals, projects, and work items, a planning
+  API, idempotent local-only seed data, and the `/workforce` dashboard. It
+  reuses existing AgentOS agent identities and has no execution or approval
+  path. Verification: a fresh SQLite migration reaches `0010`; seed replay
+  creates `2` goals, `1` project, and `3` work items then stays idempotent;
+  focused migration/model/API tests pass `9 passed`; the full backend suite
+  passes `405 passed, 8 skipped, 3 warnings`; frontend typecheck, lint, and
+  production build pass with the `/workforce` route.
+- Status: **IMPLEMENTATION AUTHORIZED ON REVIEW BRANCH; W0 and W1 complete as
+  review-branch engineering checkpoints.** No merge to `main`, external
   deployment, customer outreach, real account creation, live connector, live
   payment, customer data, or legal commitment is authorized by this decision.
 
