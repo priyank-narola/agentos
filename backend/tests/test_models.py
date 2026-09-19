@@ -22,6 +22,9 @@ from app.db.models import (
     ResourceStatus,
     RiskClassification,
     Tool,
+    WorkforceGoal,
+    WorkforceProject,
+    WorkforceWorkItem,
     DEFAULT_TENANT_ID,
 )
 from app.schemas import ActionRequestSchema, AgentSchema, DecisionSchema
@@ -51,6 +54,9 @@ def test_all_domain_tables_are_registered() -> None:
         "financial_executions",
         "reconciliation_jobs",
         "webhook_events",
+        "workforce_goals",
+        "workforce_projects",
+        "workforce_work_items",
     }
 
 
@@ -61,6 +67,8 @@ def test_security_relevant_constraints_are_declared() -> None:
     assert any(foreign_key["referred_table"] == "action_requests" for foreign_key in inspector.get_foreign_keys("decisions"))
     assert any(foreign_key["referred_table"] == "principals" for foreign_key in inspector.get_foreign_keys("delegations"))
     assert any(column["name"] == "idempotency_key" and column["nullable"] is False for column in inspector.get_columns("action_requests"))
+    assert any(foreign_key["referred_table"] == "workforce_projects" for foreign_key in inspector.get_foreign_keys("workforce_work_items"))
+    assert any(foreign_key["referred_table"] == "agents" for foreign_key in inspector.get_foreign_keys("workforce_goals"))
 
 
 def test_action_request_preserves_identity_and_target_relationships() -> None:
@@ -108,3 +116,18 @@ def test_public_schemas_are_separate_from_orm_models() -> None:
     assert AgentSchema.model_config["from_attributes"] is True
     assert DecisionSchema.model_config["from_attributes"] is True
     assert ActionRequestSchema is not ActionRequest
+
+
+def test_workforce_models_are_planning_only_and_reference_governed_agents() -> None:
+    with Session(engine) as session:
+        principal = Principal(type=PrincipalType.HUMAN, name="Workforce owner", external_id=f"workforce-owner-{uuid4()}")
+        agent = Agent(name=f"WorkforceAgent-{uuid4()}", owner=principal, purpose="Work planning", version="1.0.0", risk_classification=RiskClassification.LOW)
+        goal = WorkforceGoal(title="Make work accountable", owner_agent=agent)
+        project = WorkforceProject(name=f"Planning-{uuid4()}", goal=goal, owner_agent=agent)
+        item = WorkforceWorkItem(project=project, goal=goal, title="Plan a safe task", assignee_agent=agent)
+        session.add(item)
+        session.commit()
+
+        assert item.action_request_id is None
+        assert item.assignee_agent is agent
+        assert item.project.goal is goal

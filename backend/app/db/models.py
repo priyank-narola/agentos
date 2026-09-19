@@ -134,6 +134,24 @@ class ReconciliationJobStatus(StrEnum):
     ESCALATED = "ESCALATED"
 
 
+class WorkforceGoalStatus(StrEnum):
+    PLANNED = "PLANNED"
+    ACTIVE = "ACTIVE"
+    AT_RISK = "AT_RISK"
+    ACHIEVED = "ACHIEVED"
+    CANCELLED = "CANCELLED"
+
+
+class WorkforceWorkItemStatus(StrEnum):
+    BACKLOG = "BACKLOG"
+    READY = "READY"
+    IN_PROGRESS = "IN_PROGRESS"
+    IN_REVIEW = "IN_REVIEW"
+    BLOCKED = "BLOCKED"
+    DONE = "DONE"
+    CANCELLED = "CANCELLED"
+
+
 def enum_type(enum_class: type[enum.Enum]) -> SqlEnum:
     return SqlEnum(enum_class, name=enum_class.__name__.lower(), native_enum=True, create_constraint=True)
 
@@ -461,3 +479,80 @@ class WebhookEvent(TimestampMixin, Base):
     outcome: Mapped[str] = mapped_column(String(50), nullable=False)
     payload: Mapped[dict[str, Any]] = mapped_column(JSON_PAYLOAD, nullable=False)
     tenant: Mapped[Tenant] = relationship()
+
+
+class WorkforceGoal(TimestampMixin, Base):
+    """A tenant-scoped goal in the Workforce planning hierarchy.
+
+    Workforce organizes agent work; it never grants authority to execute a
+    protected action. Ownership points to an existing governed Agent identity.
+    """
+
+    __tablename__ = "workforce_goals"
+    __table_args__ = (
+        Index("ix_workforce_goals_tenant_status", "tenant_id", "status"),
+        Index("ix_workforce_goals_tenant_parent", "tenant_id", "parent_goal_id"),
+    )
+
+    id: Mapped[uuid.UUID] = mapped_column(Uuid(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    tenant_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("tenants.id", ondelete="RESTRICT"), nullable=False, default=DEFAULT_TENANT_ID)
+    title: Mapped[str] = mapped_column(String(240), nullable=False)
+    description: Mapped[str | None] = mapped_column(Text)
+    status: Mapped[WorkforceGoalStatus] = mapped_column(enum_type(WorkforceGoalStatus), nullable=False, default=WorkforceGoalStatus.PLANNED)
+    parent_goal_id: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("workforce_goals.id", ondelete="RESTRICT"))
+    owner_agent_id: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("agents.id", ondelete="RESTRICT"))
+    tenant: Mapped[Tenant] = relationship()
+    owner_agent: Mapped[Agent | None] = relationship(foreign_keys=[owner_agent_id])
+
+
+class WorkforceProject(TimestampMixin, Base):
+    """A bounded body of Workforce work under one tenant."""
+
+    __tablename__ = "workforce_projects"
+    __table_args__ = (
+        UniqueConstraint("tenant_id", "name", name="uq_workforce_projects_tenant_name"),
+        Index("ix_workforce_projects_tenant_status", "tenant_id", "status"),
+    )
+
+    id: Mapped[uuid.UUID] = mapped_column(Uuid(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    tenant_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("tenants.id", ondelete="RESTRICT"), nullable=False, default=DEFAULT_TENANT_ID)
+    name: Mapped[str] = mapped_column(String(200), nullable=False)
+    description: Mapped[str | None] = mapped_column(Text)
+    status: Mapped[str] = mapped_column(String(32), nullable=False, default="ACTIVE")
+    goal_id: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("workforce_goals.id", ondelete="RESTRICT"))
+    owner_agent_id: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("agents.id", ondelete="RESTRICT"))
+    tenant: Mapped[Tenant] = relationship()
+    goal: Mapped[WorkforceGoal | None] = relationship(foreign_keys=[goal_id])
+    owner_agent: Mapped[Agent | None] = relationship(foreign_keys=[owner_agent_id])
+
+
+class WorkforceWorkItem(TimestampMixin, Base):
+    """A durable, assignable item of work.
+
+    ``action_request_id`` is a read-only causal link to an already-created
+    AgentOS action request. It is intentionally not an execution mechanism.
+    """
+
+    __tablename__ = "workforce_work_items"
+    __table_args__ = (
+        Index("ix_workforce_work_items_tenant_status", "tenant_id", "status"),
+        Index("ix_workforce_work_items_tenant_project", "tenant_id", "project_id"),
+        Index("ix_workforce_work_items_tenant_assignee", "tenant_id", "assignee_agent_id"),
+        Index("ix_workforce_work_items_action_request", "action_request_id"),
+    )
+
+    id: Mapped[uuid.UUID] = mapped_column(Uuid(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    tenant_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("tenants.id", ondelete="RESTRICT"), nullable=False, default=DEFAULT_TENANT_ID)
+    project_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("workforce_projects.id", ondelete="RESTRICT"), nullable=False)
+    goal_id: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("workforce_goals.id", ondelete="RESTRICT"))
+    title: Mapped[str] = mapped_column(String(280), nullable=False)
+    description: Mapped[str | None] = mapped_column(Text)
+    status: Mapped[WorkforceWorkItemStatus] = mapped_column(enum_type(WorkforceWorkItemStatus), nullable=False, default=WorkforceWorkItemStatus.BACKLOG)
+    priority: Mapped[str] = mapped_column(String(32), nullable=False, default="MEDIUM")
+    assignee_agent_id: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("agents.id", ondelete="RESTRICT"))
+    action_request_id: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("action_requests.id", ondelete="RESTRICT"))
+    tenant: Mapped[Tenant] = relationship()
+    project: Mapped[WorkforceProject] = relationship(foreign_keys=[project_id])
+    goal: Mapped[WorkforceGoal | None] = relationship(foreign_keys=[goal_id])
+    assignee_agent: Mapped[Agent | None] = relationship(foreign_keys=[assignee_agent_id])
+    action_request: Mapped[ActionRequest | None] = relationship(foreign_keys=[action_request_id])

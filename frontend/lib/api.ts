@@ -89,6 +89,9 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
 }
 
 export type Agent = { id: string; name: string; description?: string | null; owner_principal_id: string; purpose: string; version: string; status: "ACTIVE" | "SUSPENDED" | "RETIRED"; risk_classification: "LOW" | "MEDIUM" | "HIGH"; };
+export type WorkforceGoal = { id: string; tenant_id: string; title: string; description?: string | null; status: "PLANNED" | "ACTIVE" | "AT_RISK" | "ACHIEVED" | "CANCELLED"; parent_goal_id?: string | null; owner_agent_id?: string | null; created_at: string; updated_at: string; };
+export type WorkforceProject = { id: string; tenant_id: string; name: string; description?: string | null; status: "ACTIVE" | "PAUSED" | "COMPLETED" | "CANCELLED"; goal_id?: string | null; owner_agent_id?: string | null; created_at: string; updated_at: string; };
+export type WorkforceWorkItem = { id: string; tenant_id: string; project_id: string; goal_id?: string | null; title: string; description?: string | null; status: "BACKLOG" | "READY" | "IN_PROGRESS" | "IN_REVIEW" | "BLOCKED" | "DONE" | "CANCELLED"; priority: "LOW" | "MEDIUM" | "HIGH" | "CRITICAL"; assignee_agent_id?: string | null; action_request_id?: string | null; created_at: string; updated_at: string; };
 export type Delegation = { id: string; principal_id: string; agent_id: string; scope: string; status: string; issued_at: string; expires_at?: string | null; };
 export type Action = { id: string; tool_id: string; name: string; description: string; risk_level: "LOW" | "MEDIUM" | "HIGH"; status: "ACTIVE" | "DISABLED" | "RETIRED"; };
 export type Tool = { id: string; name: string; description: string; status: "ACTIVE" | "DISABLED" | "RETIRED"; };
@@ -151,6 +154,13 @@ export const api = {
   delegations: () => request<Delegation[]>("/api/v1/delegations"),
   createDelegation: (payload: { principal_id: string; agent_id: string; scope: string; issued_at: string; expires_at?: string | null }) => request<Delegation>("/api/v1/delegations", { method: "POST", body: JSON.stringify(payload) }),
   revokeDelegation: (id: string) => request<Delegation>(`/api/v1/delegations/${id}/revoke`, { method: "POST" }),
+  workforceGoals: () => request<WorkforceGoal[]>("/api/v1/workforce/goals"),
+  workforceProjects: () => request<WorkforceProject[]>("/api/v1/workforce/projects"),
+  workforceWorkItems: (projectId?: string) => request<WorkforceWorkItem[]>(`/api/v1/workforce/work-items${projectId ? `?project_id=${encodeURIComponent(projectId)}` : ""}`),
+  createWorkforceGoal: (payload: { title: string; description?: string; status?: WorkforceGoal["status"]; parent_goal_id?: string | null; owner_agent_id?: string | null }) => request<WorkforceGoal>("/api/v1/workforce/goals", { method: "POST", body: JSON.stringify(payload) }),
+  createWorkforceProject: (payload: { name: string; description?: string; status?: WorkforceProject["status"]; goal_id?: string | null; owner_agent_id?: string | null }) => request<WorkforceProject>("/api/v1/workforce/projects", { method: "POST", body: JSON.stringify(payload) }),
+  createWorkforceWorkItem: (payload: { project_id: string; title: string; description?: string; goal_id?: string | null; status?: WorkforceWorkItem["status"]; priority?: WorkforceWorkItem["priority"]; assignee_agent_id?: string | null }) => request<WorkforceWorkItem>("/api/v1/workforce/work-items", { method: "POST", body: JSON.stringify(payload) }),
+  updateWorkforceWorkItem: (id: string, payload: Partial<Pick<WorkforceWorkItem, "title" | "description" | "goal_id" | "status" | "priority" | "assignee_agent_id">>) => request<WorkforceWorkItem>(`/api/v1/workforce/work-items/${id}`, { method: "PATCH", body: JSON.stringify(payload) }),
   agents: () => request<Agent[]>("/api/v1/agents"),
   agent: (id: string) => request<Agent>(`/api/v1/agents/${id}`),
   activateAgent: (id: string) => request<Agent>(`/api/v1/agents/${id}/activate`, { method: "POST" }),

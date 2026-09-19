@@ -23,6 +23,7 @@ from app.api.reconciliation import router as reconciliation_router
 from app.api.roles import router as roles_router
 from app.api.customer_remediation import router as customer_remediation_router
 from app.api.launch_readiness import router as launch_readiness_router
+from app.api.workforce import router as workforce_router
 from app.api.deps import require_rest_auth
 from app.api.mcp import mcp_app
 
@@ -58,6 +59,7 @@ app.include_router(reconciliation_router, dependencies=[Depends(require_rest_aut
 app.include_router(roles_router, dependencies=[Depends(require_rest_auth)])
 app.include_router(customer_remediation_router, dependencies=[Depends(require_rest_auth)])
 app.include_router(launch_readiness_router, dependencies=[Depends(require_rest_auth)])
+app.include_router(workforce_router, dependencies=[Depends(require_rest_auth)])
 
 
 

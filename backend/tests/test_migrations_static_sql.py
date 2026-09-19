@@ -38,3 +38,5 @@ def test_postgresql_migrations_render_offline_sql() -> None:
     assert "CREATE TABLE tenants" in result.stdout
     assert "CREATE TABLE audit_events" in result.stdout
     assert "event_sequence" in result.stdout
+    assert "CREATE TABLE workforce_goals" in result.stdout
+    assert "CREATE TABLE workforce_work_items" in result.stdout

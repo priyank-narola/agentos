@@ -23,6 +23,8 @@ from app.db.models import (
     ResourceStatus,
     RiskClassification,
     TenantRole,
+    WorkforceGoalStatus,
+    WorkforceWorkItemStatus,
 )
 
 
@@ -100,6 +102,96 @@ class AgentUpdate(BaseModel):
     risk_classification: RiskClassification | None = None
     description: str | None = None
     status: AgentStatus | None = None
+
+
+class WorkforceGoalSchema(DomainSchema):
+    id: UUID
+    tenant_id: UUID
+    title: str
+    description: str | None = None
+    status: WorkforceGoalStatus
+    parent_goal_id: UUID | None = None
+    owner_agent_id: UUID | None = None
+    created_at: datetime
+    updated_at: datetime
+
+
+class WorkforceGoalCreate(BaseModel):
+    title: str = Field(min_length=1, max_length=240)
+    description: str | None = None
+    status: WorkforceGoalStatus = WorkforceGoalStatus.PLANNED
+    parent_goal_id: UUID | None = None
+    owner_agent_id: UUID | None = None
+
+
+class WorkforceGoalUpdate(BaseModel):
+    title: str | None = Field(default=None, min_length=1, max_length=240)
+    description: str | None = None
+    status: WorkforceGoalStatus | None = None
+    parent_goal_id: UUID | None = None
+    owner_agent_id: UUID | None = None
+
+
+class WorkforceProjectSchema(DomainSchema):
+    id: UUID
+    tenant_id: UUID
+    name: str
+    description: str | None = None
+    status: str
+    goal_id: UUID | None = None
+    owner_agent_id: UUID | None = None
+    created_at: datetime
+    updated_at: datetime
+
+
+class WorkforceProjectCreate(BaseModel):
+    name: str = Field(min_length=1, max_length=200)
+    description: str | None = None
+    status: Literal["ACTIVE", "PAUSED", "COMPLETED", "CANCELLED"] = "ACTIVE"
+    goal_id: UUID | None = None
+    owner_agent_id: UUID | None = None
+
+
+class WorkforceProjectUpdate(BaseModel):
+    name: str | None = Field(default=None, min_length=1, max_length=200)
+    description: str | None = None
+    status: Literal["ACTIVE", "PAUSED", "COMPLETED", "CANCELLED"] | None = None
+    goal_id: UUID | None = None
+    owner_agent_id: UUID | None = None
+
+
+class WorkforceWorkItemSchema(DomainSchema):
+    id: UUID
+    tenant_id: UUID
+    project_id: UUID
+    goal_id: UUID | None = None
+    title: str
+    description: str | None = None
+    status: WorkforceWorkItemStatus
+    priority: str
+    assignee_agent_id: UUID | None = None
+    action_request_id: UUID | None = None
+    created_at: datetime
+    updated_at: datetime
+
+
+class WorkforceWorkItemCreate(BaseModel):
+    project_id: UUID
+    title: str = Field(min_length=1, max_length=280)
+    description: str | None = None
+    goal_id: UUID | None = None
+    status: WorkforceWorkItemStatus = WorkforceWorkItemStatus.BACKLOG
+    priority: Literal["LOW", "MEDIUM", "HIGH", "CRITICAL"] = "MEDIUM"
+    assignee_agent_id: UUID | None = None
+
+
+class WorkforceWorkItemUpdate(BaseModel):
+    title: str | None = Field(default=None, min_length=1, max_length=280)
+    description: str | None = None
+    goal_id: UUID | None = None
+    status: WorkforceWorkItemStatus | None = None
+    priority: Literal["LOW", "MEDIUM", "HIGH", "CRITICAL"] | None = None
+    assignee_agent_id: UUID | None = None
 
 
 class DelegationSchema(DomainSchema):

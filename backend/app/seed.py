@@ -25,6 +25,11 @@ from app.db.models import (
     PolicyRule,
     PolicyStatus,
     TenantRole,
+    WorkforceGoal,
+    WorkforceGoalStatus,
+    WorkforceProject,
+    WorkforceWorkItem,
+    WorkforceWorkItemStatus,
 )
 from app.services.authorization import grant_role
 
@@ -119,6 +124,94 @@ def seed_demo(session: Session) -> dict[str, int]:
     return {"principals": 1, "agents": len(agents), "tools": len(tools), "actions_created": action_count, "resources_created": resource_count, "delegations_created": delegation_count, "policies_created": policies_created}
 
 
+def seed_workforce_demo(session: Session) -> dict[str, int]:
+    """Idempotent local-only planning data for the integrated Workforce UI.
+
+    It models work and ownership only. It does not start an agent, create a
+    schedule, send a message, or invoke a connector.
+    """
+    tenant = session.get(Tenant, DEFAULT_TENANT_ID)
+    if tenant is None:
+        seed_demo(session)
+        tenant = session.get(Tenant, DEFAULT_TENANT_ID)
+    assert tenant is not None
+
+    finance = _first(session, Agent, tenant_id=tenant.id, name="FinanceAgent")
+    research = _first(session, Agent, tenant_id=tenant.id, name="ResearchAgent")
+    sales = _first(session, Agent, tenant_id=tenant.id, name="SalesAgent")
+    if not all((finance, research, sales)):
+        seed_demo(session)
+        finance = _first(session, Agent, tenant_id=tenant.id, name="FinanceAgent")
+        research = _first(session, Agent, tenant_id=tenant.id, name="ResearchAgent")
+        sales = _first(session, Agent, tenant_id=tenant.id, name="SalesAgent")
+    assert finance and research and sales
+
+    mission = _first(session, WorkforceGoal, tenant_id=tenant.id, title="Operate AI work with accountable human governance")
+    goals_created = 0
+    if mission is None:
+        mission = WorkforceGoal(
+            tenant_id=tenant.id,
+            title="Operate AI work with accountable human governance",
+            description="Demonstrate a workforce where work planning and consequential-action governance remain separate.",
+            status=WorkforceGoalStatus.ACTIVE,
+            owner_agent_id=research.id,
+        )
+        session.add(mission)
+        session.flush()
+        goals_created += 1
+
+    queue_goal = _first(session, WorkforceGoal, tenant_id=tenant.id, title="Improve approval-queue visibility")
+    if queue_goal is None:
+        queue_goal = WorkforceGoal(
+            tenant_id=tenant.id,
+            title="Improve approval-queue visibility",
+            description="Give operators a clear, auditable view of pending governed actions.",
+            status=WorkforceGoalStatus.ACTIVE,
+            parent_goal_id=mission.id,
+            owner_agent_id=finance.id,
+        )
+        session.add(queue_goal)
+        session.flush()
+        goals_created += 1
+
+    project = _first(session, WorkforceProject, tenant_id=tenant.id, name="Governed operations launch")
+    projects_created = 0
+    if project is None:
+        project = WorkforceProject(
+            tenant_id=tenant.id,
+            name="Governed operations launch",
+            description="Sandbox planning board for the AgentOS workforce module.",
+            status="ACTIVE",
+            goal_id=queue_goal.id,
+            owner_agent_id=research.id,
+        )
+        session.add(project)
+        session.flush()
+        projects_created += 1
+
+    work_specs = [
+        ("Map the pending approval queue", "Confirm which requests require an independent human decision.", WorkforceWorkItemStatus.IN_PROGRESS, "HIGH", finance.id),
+        ("Draft the weekly governance brief", "Summarize policy, risk, and evidence posture from sandbox records.", WorkforceWorkItemStatus.READY, "MEDIUM", research.id),
+        ("Review customer remediation guardrails", "Check that every proposed correction remains a separately governed action.", WorkforceWorkItemStatus.IN_REVIEW, "HIGH", sales.id),
+    ]
+    work_items_created = 0
+    for title, description, status, priority, assignee in work_specs:
+        if _first(session, WorkforceWorkItem, tenant_id=tenant.id, project_id=project.id, title=title) is None:
+            session.add(WorkforceWorkItem(
+                tenant_id=tenant.id,
+                project_id=project.id,
+                goal_id=queue_goal.id,
+                title=title,
+                description=description,
+                status=status,
+                priority=priority,
+                assignee_agent_id=assignee,
+            ))
+            work_items_created += 1
+    session.commit()
+    return {"goals_created": goals_created, "projects_created": projects_created, "work_items_created": work_items_created}
+
+
 if __name__ == "__main__":
     from app.db.session import SessionLocal
 
@@ -126,6 +219,7 @@ if __name__ == "__main__":
         raise SystemExit("DATABASE_URL must be configured before seeding")
     with SessionLocal() as db:
         print(seed_demo(db))
+        print(seed_workforce_demo(db))
         # Populate coherent governance activity (drives the real gateway/approval
         # pipeline) so the control-plane surfaces are not empty in local dev.
         from app.seed_activity import seed_default_tenant_activity

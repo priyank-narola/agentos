@@ -21,6 +21,7 @@ export type NavGroup = { label: string; href: string; items?: NavItem[] };
 
 export const NAV_GROUPS: NavGroup[] = [
   { label: "Control center", href: "/" },
+  { label: "Workforce", href: "/workforce" },
   {
     label: "Action governance",
     href: "/action-requests",
