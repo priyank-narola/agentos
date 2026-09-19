@@ -50,6 +50,14 @@
   review-branch engineering checkpoints.** No merge to `main`, external
   deployment, customer outreach, real account creation, live connector, live
   payment, customer data, or legal commitment is authorized by this decision.
+- Public-product checkpoint: the review branch now exposes a distinct public
+  layer at `/` with linked `/product`, `/security`, `/pricing`, `/login`, and
+  `/signup` pages. The existing control center remains available at
+  `/control-center`; Workforce and all existing governance surfaces remain
+  intact. The login and signup pages are explicitly sandbox entry surfaces,
+  not production account creation or live identity-provider integration. This
+  is a local/review-branch product shell only; public deployment remains
+  pending the founder decision in section 13.
 
 ## 0. Review Branch and Reporting Correction — 17 September 2026
 

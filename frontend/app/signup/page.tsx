@@ -1,0 +1,6 @@
+import Link from "next/link";
+import { PublicShell } from "@/components/public-site";
+
+export default function SignupPage() {
+  return <PublicShell><main className="grid min-h-[calc(100vh-22rem)] place-items-center px-5 py-16"><section className="w-full max-w-md rounded-xl border border-hairline bg-white p-7 shadow-card"><p className="text-xs font-semibold uppercase tracking-[.16em] text-signal">Start safely</p><h1 className="mt-3 text-2xl font-semibold tracking-tight text-ink">Explore AgentOS in sandbox</h1><p className="mt-2 text-sm leading-6 text-inkSubtle">This local environment does not create production accounts. Open the seeded sandbox to review governed workforce and action workflows.</p><div className="mt-7 space-y-3"><Link href="/workforce" className="block rounded-lg bg-signal px-4 py-3 text-center text-sm font-semibold text-white hover:bg-signalHover">Explore Workforce</Link><Link href="/demo" className="block rounded-lg border border-hairlineStrong px-4 py-3 text-center text-sm font-semibold text-ink hover:bg-surfaceMuted">Run guided demo</Link></div><p className="mt-5 text-center text-xs text-inkFaint">No live connector or real-money action is enabled.</p></section></main></PublicShell>;
+}

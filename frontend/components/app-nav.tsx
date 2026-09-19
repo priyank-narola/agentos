@@ -20,7 +20,7 @@ export type NavItem = { label: string; href: string; hint?: string };
 export type NavGroup = { label: string; href: string; items?: NavItem[] };
 
 export const NAV_GROUPS: NavGroup[] = [
-  { label: "Control center", href: "/" },
+  { label: "Control center", href: "/control-center" },
   {
     label: "Workforce",
     href: "/workforce",
@@ -106,7 +106,7 @@ function groupActive(pathname: string, group: NavGroup): boolean {
 /** The wordmark used in the top bar. */
 export function Wordmark() {
   return (
-    <Link href="/" className="flex items-center gap-2.5" aria-label="AgentOS control center">
+    <Link href="/control-center" className="flex items-center gap-2.5" aria-label="AgentOS control center">
       <span className="grid h-7 w-7 place-items-center rounded-[7px] bg-signal text-[13px] font-bold text-white">A</span>
       <span className="flex flex-col leading-none">
         <span className="text-[15px] font-semibold tracking-tight text-ink">AgentOS</span>
