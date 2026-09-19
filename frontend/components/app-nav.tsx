@@ -21,7 +21,15 @@ export type NavGroup = { label: string; href: string; items?: NavItem[] };
 
 export const NAV_GROUPS: NavGroup[] = [
   { label: "Control center", href: "/" },
-  { label: "Workforce", href: "/workforce" },
+  {
+    label: "Workforce",
+    href: "/workforce",
+    items: [
+      { label: "Workforce dashboard", href: "/workforce", hint: "Goals, work posture, and governed-action links" },
+      { label: "Goals", href: "/workforce/goals", hint: "Mission hierarchy and accountable agent owners" },
+      { label: "Projects & work", href: "/workforce/projects", hint: "Bounded projects and durable work queue" },
+    ],
+  },
   {
     label: "Action governance",
     href: "/action-requests",
