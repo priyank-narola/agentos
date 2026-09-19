@@ -33,6 +33,17 @@
   focused migration/model/API tests pass `9 passed`; the full backend suite
   passes `405 passed, 8 skipped, 3 warnings`; frontend typecheck, lint, and
   production build pass with the `/workforce` route.
+- Workforce W2 checkpoint: commit `911c0ae` adds the real-API-backed
+  `/workforce/goals` and `/workforce/projects` surfaces and promotes Workforce
+  to a grouped product navigation area. Users can create goals, nest them,
+  assign existing active governed agents, create projects and work items, and
+  update a work item's planning status. These actions are planning-only: they
+  do not schedule or start agents, change delegated authority, or invoke an
+  action connector. Frontend typecheck, lint, and the production build pass
+  with `26` routes. The local embedded-browser client presently blocks direct
+  sandbox API-port requests after a server restart, so browser data loading in
+  that client is **unverified**; backend migration/seed/API verification stays
+  independently verified as described above.
 - Status: **IMPLEMENTATION AUTHORIZED ON REVIEW BRANCH; W0 and W1 complete as
   review-branch engineering checkpoints.** No merge to `main`, external
   deployment, customer outreach, real account creation, live connector, live
