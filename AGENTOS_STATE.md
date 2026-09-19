@@ -40,10 +40,12 @@
   update a work item's planning status. These actions are planning-only: they
   do not schedule or start agents, change delegated authority, or invoke an
   action connector. Frontend typecheck, lint, and the production build pass
-  with `26` routes. The local embedded-browser client presently blocks direct
-  sandbox API-port requests after a server restart, so browser data loading in
-  that client is **unverified**; backend migration/seed/API verification stays
-  independently verified as described above.
+  with `26` routes. Commit `3edca64` adds an opt-in same-origin Next.js proxy
+  for local sandbox development, leaving production direct unless an operator
+  explicitly configures it. Browser verification now visibly loads the seeded
+  Workforce dashboard: `2` active goals, `1` active project, and `3` work
+  items. Backend migration/seed/API verification stays independently verified
+  as described above.
 - Status: **IMPLEMENTATION AUTHORIZED ON REVIEW BRANCH; W0 and W1 complete as
   review-branch engineering checkpoints.** No merge to `main`, external
   deployment, customer outreach, real account creation, live connector, live
