@@ -1,9 +1,31 @@
 # AGENTOS — CURRENT STATE LOCK (Canonical Project State)
 
-**Version:** 1.8 — 18 September 2026
+**Version:** 1.9 — 19 September 2026
 **Status:** CURRENT (canonical). Companion to `AGENTOS_OPERATING_PROMPT.md`.
 **Verified baseline:** Git `main` @ `332e68c65b2ba1d888707f0031fe83a7be3fbd2b` (governance UX redesign, Intelligence V2, and security-audit fixes).
 **Update rule:** This file is authoritative until a new verified audit changes it. Any agent updating it must verify against source, DB, runtime, and executed tests first, and record the new Git checkpoint.
+
+## 0A. Workforce OS / Paperclip-inspired integration — 19 September 2026
+
+- Priyank explicitly authorized research and implementation of a Paperclip-like
+  AI-workforce operating layer, integrated with—not replacing—the existing
+  AgentOS action-governance product. The recorded assessment is
+  `docs/PAPERCLIP_INTEGRATION_ASSESSMENT_V1.md`.
+- Official upstream Paperclip code at review pin
+  `6d03428682d9c0bc75f620e74c7075b6d9d0d12e` was inspected locally from the
+  public `PaperclipAI/paperclip` repository. The code repository is MIT; any
+  future copied substantial code must retain its notice and be recorded in a
+  third-party notice. Paperclip branding, marketing copy, hosted credentials,
+  and separately CC BY-NC-N documentation content are not copied.
+- Architecture decision: build a native `Workforce` module in the existing
+  Next.js/FastAPI/SQLAlchemy control plane. It will own organization, goal,
+  project, work-item, run/routine, and budget domains. The existing gateway,
+  policy, approval, execution ledger, reconciliation, and evidence systems
+  remain the exclusive protected-action boundary.
+- Status: **IMPLEMENTATION AUTHORIZED ON REVIEW BRANCH; W0 research complete
+  only after the commit recording this section.** No merge to `main`, external
+  deployment, customer outreach, real account creation, live connector, live
+  payment, customer data, or legal commitment is authorized by this decision.
 
 ## 0. Review Branch and Reporting Correction — 17 September 2026
 
