@@ -64,6 +64,10 @@
   card elevation, and a `prefers-reduced-motion` fallback. It is inspired by
   high-level design qualities observed in supplied Paperclip and product-site
   recordings but does not copy their code, branding, visual assets, or copy.
+- Public landing redesign: the former lightweight marketing surface has been
+  replaced with a full AgentOS command-center story: a responsive sandbox
+  control-center visual, connected Workforce-to-governance diagram, operating
+  loop cards, explicit control claims, and accessible responsive styling.
 
 ## 0. Review Branch and Reporting Correction — 17 September 2026
 
