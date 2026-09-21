@@ -77,6 +77,13 @@
   project/status filters, sorting, an item count, and a clear-filters action.
   AgentOS still owns all state, authorization, policy, approval, execution,
   and evidence behavior; Paperclip's Vite/Node runtime is not embedded.
+- Workforce board checkpoint: `/workforce/projects` now adds a native
+  list/board switch over that same real queue. The keyboard-accessible board
+  groups the persisted work items by status, exposes count and empty states,
+  preserves the filters/search/sort controls, and uses the existing API status
+  update rather than adding a bypass around action governance. This is an
+  AgentOS implementation informed by the Paperclip work-collection pattern,
+  not an embedded Paperclip runtime or a claim of complete feature parity.
 
 ## 0. Review Branch and Reporting Correction — 17 September 2026
 
