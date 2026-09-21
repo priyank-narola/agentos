@@ -68,6 +68,15 @@
   replaced with a full AgentOS command-center story: a responsive sandbox
   control-center visual, connected Workforce-to-governance diagram, operating
   loop cards, explicit control claims, and accessible responsive styling.
+- Paperclip source integration checkpoint: Priyank supplied the Paperclip
+  source archive and repository URL on 21 September. Its root `LICENSE` is
+  MIT (Copyright 2025 Paperclip AI). The first compatible source integration
+  is the adapted `CollectionToolbar` presentation component, recorded with
+  its source and complete MIT notice in `THIRD_PARTY_NOTICES.md`. It now
+  powers AgentOS `/workforce/projects` with real Workforce API-backed search,
+  project/status filters, sorting, an item count, and a clear-filters action.
+  AgentOS still owns all state, authorization, policy, approval, execution,
+  and evidence behavior; Paperclip's Vite/Node runtime is not embedded.
 
 ## 0. Review Branch and Reporting Correction — 17 September 2026
 
