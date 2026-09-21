@@ -105,6 +105,30 @@ button { font: inherit; }
   animation: rise-in var(--duration-standard) var(--ease-emphasized) both;
 }
 
+/* ── Public product motion ──────────────────────────────────────────── */
+.public-site { overflow: clip; }
+.public-header { transition: background-color 240ms var(--ease-standard), border-color 240ms var(--ease-standard); }
+.public-mark { box-shadow: 0 0 0 1px rgba(255,255,255,.12), 0 8px 22px rgba(46,125,104,.26); transition: transform 180ms var(--ease-emphasized), box-shadow 180ms var(--ease-standard); }
+.public-wordmark:hover .public-mark { transform: rotate(-5deg) scale(1.06); box-shadow: 0 10px 28px rgba(67, 204, 166, .32); }
+.public-nav-link { position: relative; }
+.public-nav-link::after { position: absolute; right: 0; bottom: -7px; left: 0; height: 1px; background: #6ee7c6; content: ""; transform: scaleX(0); transform-origin: right; transition: transform 200ms var(--ease-standard); }
+.public-nav-link:hover::after { transform: scaleX(1); transform-origin: left; }
+.public-cta, .public-secondary-cta { box-shadow: 0 1px 0 rgba(255,255,255,.25) inset, 0 8px 20px rgba(3, 11, 25, .12); transition: transform 180ms var(--ease-emphasized), box-shadow 180ms var(--ease-standard), background-color 180ms var(--ease-standard); }
+.public-cta:hover, .public-secondary-cta:hover { transform: translateY(-2px); box-shadow: 0 1px 0 rgba(255,255,255,.25) inset, 0 14px 28px rgba(3, 11, 25, .24); }
+.marketing-hero { position: relative; isolation: isolate; }
+.marketing-hero::before { position: absolute; z-index: -1; inset: 0; background: radial-gradient(circle at 81% 32%, rgba(47, 170, 136, .17), transparent 28%), radial-gradient(circle at 12% 88%, rgba(32, 83, 135, .16), transparent 36%); content: ""; }
+.marketing-hero::after { position: absolute; z-index: -1; inset: 0; opacity: .24; background-image: linear-gradient(rgba(148,163,184,.09) 1px, transparent 1px), linear-gradient(90deg, rgba(148,163,184,.09) 1px, transparent 1px); background-size: 44px 44px; mask-image: linear-gradient(to bottom, black, transparent 72%); content: ""; }
+.hero-copy { position: relative; z-index: 1; }
+.hero-command-card { overflow: hidden; transform-origin: 70% 45%; transition: transform 360ms var(--ease-emphasized), border-color 260ms var(--ease-standard), box-shadow 360ms var(--ease-standard); }
+.hero-command-card::before { position: absolute; top: -180%; left: -35%; width: 45%; height: 380%; opacity: 0; background: linear-gradient(90deg, transparent, rgba(167,243,208,.09), transparent); content: ""; transform: rotate(20deg); transition: transform 900ms var(--ease-emphasized), opacity 280ms var(--ease-standard); pointer-events: none; }
+.hero-command-card:hover { border-color: rgba(110, 231, 198, .56); transform: translateY(-6px) rotateX(1deg); box-shadow: 0 30px 60px rgba(0,0,0,.33); }
+.hero-command-card:hover::before { opacity: 1; transform: translateX(430%) rotate(20deg); }
+.motion-reveal { animation: public-reveal 650ms var(--ease-emphasized) both; }
+.motion-delay-1 { animation-delay: 40ms; }.motion-delay-2 { animation-delay: 120ms; }.motion-delay-3 { animation-delay: 200ms; }.motion-delay-4 { animation-delay: 280ms; }.motion-delay-5 { animation-delay: 360ms; }
+.public-feature-card { transition: transform 240ms var(--ease-emphasized), border-color 200ms var(--ease-standard), box-shadow 240ms var(--ease-standard); }
+.public-feature-card:hover { border-color: var(--color-signal-soft-border); transform: translateY(-5px); box-shadow: 0 18px 34px rgba(16, 24, 39, .09); }
+@keyframes public-reveal { from { opacity: 0; transform: translateY(16px); } to { opacity: 1; transform: translateY(0); } }
+
 /* ── Scrollbars (restrained) ─────────────────────────────────────────── */
 ::-webkit-scrollbar { width: 10px; height: 10px; }
 ::-webkit-scrollbar-thumb { background: #d3d8d6; border-radius: 6px; }

@@ -58,6 +58,12 @@
   not production account creation or live identity-provider integration. This
   is a local/review-branch product shell only; public deployment remains
   pending the founder decision in section 13.
+- Public motion checkpoint: the landing page now has an original AgentOS
+  motion and interaction layer: staged content entry, animated visual depth,
+  responsive command-card feedback, CTA and navigation hover states, feature
+  card elevation, and a `prefers-reduced-motion` fallback. It is inspired by
+  high-level design qualities observed in supplied Paperclip and product-site
+  recordings but does not copy their code, branding, visual assets, or copy.
 
 ## 0. Review Branch and Reporting Correction — 17 September 2026
 
