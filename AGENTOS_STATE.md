@@ -93,6 +93,13 @@
   migrated-and-seeded SQLite preview database; the repository Workforce API
   lifecycle test also passes (`2 passed`). No user database was migrated or
   altered for this verification.
+- Workforce project workspace checkpoint: the review branch now includes a
+  native `/workforce/projects/project/[projectId]` case-file surface. It uses
+  the existing project read/update and project-scoped work-item APIs for
+  project context, owner/goal links, planning state, work distribution, and
+  the project queue. The implementation has passed frontend type and lint
+  checks; it remains a planning-only surface and does not grant execution,
+  approval, or connector authority.
 
 ## 0. Review Branch and Reporting Correction — 17 September 2026
 

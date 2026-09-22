@@ -156,6 +156,7 @@ export const api = {
   revokeDelegation: (id: string) => request<Delegation>(`/api/v1/delegations/${id}/revoke`, { method: "POST" }),
   workforceGoals: () => request<WorkforceGoal[]>("/api/v1/workforce/goals"),
   workforceProjects: () => request<WorkforceProject[]>("/api/v1/workforce/projects"),
+  workforceProject: (id: string) => request<WorkforceProject>(`/api/v1/workforce/projects/${id}`),
   workforceWorkItems: (projectId?: string) => request<WorkforceWorkItem[]>(`/api/v1/workforce/work-items${projectId ? `?project_id=${encodeURIComponent(projectId)}` : ""}`),
   workforceWorkItem: (id: string) => request<WorkforceWorkItem>(`/api/v1/workforce/work-items/${id}`),
   createWorkforceGoal: (payload: { title: string; description?: string; status?: WorkforceGoal["status"]; parent_goal_id?: string | null; owner_agent_id?: string | null }) => request<WorkforceGoal>("/api/v1/workforce/goals", { method: "POST", body: JSON.stringify(payload) }),
