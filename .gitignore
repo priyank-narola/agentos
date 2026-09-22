@@ -28,6 +28,7 @@ backend/.env
 *.sqlite
 *.sqlite3
 *.sqlite-journal
+.agentos-local/
 
 # Build and editor files
 dist/

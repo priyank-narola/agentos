@@ -1,0 +1,8 @@
+# AgentOS-owned override for the pinned upstream quickstart compose file.
+# This changes deployment posture only; it does not patch upstream code.
+services:
+  paperclip:
+    environment:
+      PAPERCLIP_DEPLOYMENT_MODE: "${PAPERCLIP_DEPLOYMENT_MODE:-local_trusted}"
+      PAPERCLIP_DEPLOYMENT_EXPOSURE: "${PAPERCLIP_DEPLOYMENT_EXPOSURE:-private}"
+      PAPERCLIP_PUBLIC_URL: "${PAPERCLIP_PUBLIC_URL:-http://localhost:3100}"
