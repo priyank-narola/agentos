@@ -7,6 +7,30 @@
 
 ## 0A. Workforce OS / Paperclip-inspired integration — 19 September 2026
 
+### Full-source sidecar integration decision — 22 September 2026
+
+- Priyank has explicitly directed that existing AgentOS functionality remain
+  intact while the complete supplied Paperclip source is integrated as closely
+  as technically and legally possible. The source-level audit is recorded in
+  `docs/PAPERCLIP_FULL_INTEGRATION_ARCHITECTURE_V2.md`.
+- Upstream Paperclip is a complete, independently runnable React/Vite +
+  Express/Drizzle/PostgreSQL monorepo, not a component package compatible with
+  AgentOS's Next.js/FastAPI/SQLAlchemy runtime. The verified source pin is
+  `8326e33adad63e26c918edf6adf6db114997eced` (MIT, Copyright 2025 Paperclip
+  AI). Its supported development runtime requires Node 24.11+ and pnpm 9.15.4;
+  this workstation currently has Node 22.13.0, so no upstream process has
+  been installed or run during the audit.
+- Architecture decision: include the upstream source as a pinned review-branch
+  Git submodule and launch it, when verified, as an isolated Workforce Studio
+  sidecar with its own data store. AgentOS keeps its existing product, data,
+  navigation, and exclusive policy/approval/execution/evidence boundary.
+  Paperclip-originated protected work must enter AgentOS only through a later
+  governed intent bridge. It may not self-approve or bypass a policy.
+- This authorizes source pinning and local/sandbox integration work only. It
+  does not authorize a merge to `main`, an external deployment, customer data,
+  external accounts, live agents, live connectors, provider credentials,
+  outreach, or production identity/SSO.
+
 - Priyank explicitly authorized research and implementation of a Paperclip-like
   AI-workforce operating layer, integrated with—not replacing—the existing
   AgentOS action-governance product. The recorded assessment is

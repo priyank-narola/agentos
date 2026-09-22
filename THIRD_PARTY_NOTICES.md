@@ -1,5 +1,17 @@
 # Third-party notices
 
+## Paperclip upstream source module
+
+The complete upstream Paperclip source is included as a pinned Git submodule
+at `vendor/paperclip-upstream`. The tracked source is from
+<https://github.com/paperclipai/paperclip> at revision
+`8326e33adad63e26c918edf6adf6db114997eced`.
+
+Copyright (c) 2025 Paperclip AI
+
+Licensed under the MIT License. The complete MIT text appears below and is
+retained with the upstream source in `vendor/paperclip-upstream/LICENSE`.
+
 ## Paperclip collection toolbar
 
 The presentation structure in
