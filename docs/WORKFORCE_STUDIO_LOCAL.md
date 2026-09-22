@@ -6,6 +6,8 @@ local-only development sidecar: it does not connect to the AgentOS database,
 does not receive AgentOS credentials, and does not configure an LLM provider,
 customer data, payment system, or external connector.
 
+Docker Desktop must be running before the launcher is started.
+
 ## Start it
 
 ```bash

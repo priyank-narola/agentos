@@ -13,6 +13,11 @@ if [[ ! -f "$PAPERCLIP_SOURCE/docker/docker-compose.quickstart.yml" || ! -f "$CO
   exit 1
 fi
 
+if ! docker info >/dev/null 2>&1; then
+  echo "Docker Desktop is not ready. Start Docker Desktop, wait for it to finish starting, then retry." >&2
+  exit 1
+fi
+
 export PAPERCLIP_PORT="${PAPERCLIP_PORT:-3100}"
 export PAPERCLIP_DATA_DIR="${PAPERCLIP_DATA_DIR:-$REPO_ROOT/.agentos-local/paperclip}"
 export PAPERCLIP_PUBLIC_URL="${PAPERCLIP_PUBLIC_URL:-http://localhost:$PAPERCLIP_PORT}"
