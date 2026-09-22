@@ -157,6 +157,7 @@ export const api = {
   workforceGoals: () => request<WorkforceGoal[]>("/api/v1/workforce/goals"),
   workforceProjects: () => request<WorkforceProject[]>("/api/v1/workforce/projects"),
   workforceWorkItems: (projectId?: string) => request<WorkforceWorkItem[]>(`/api/v1/workforce/work-items${projectId ? `?project_id=${encodeURIComponent(projectId)}` : ""}`),
+  workforceWorkItem: (id: string) => request<WorkforceWorkItem>(`/api/v1/workforce/work-items/${id}`),
   createWorkforceGoal: (payload: { title: string; description?: string; status?: WorkforceGoal["status"]; parent_goal_id?: string | null; owner_agent_id?: string | null }) => request<WorkforceGoal>("/api/v1/workforce/goals", { method: "POST", body: JSON.stringify(payload) }),
   updateWorkforceGoal: (id: string, payload: Partial<Pick<WorkforceGoal, "title" | "description" | "status" | "parent_goal_id" | "owner_agent_id">>) => request<WorkforceGoal>(`/api/v1/workforce/goals/${id}`, { method: "PATCH", body: JSON.stringify(payload) }),
   createWorkforceProject: (payload: { name: string; description?: string; status?: WorkforceProject["status"]; goal_id?: string | null; owner_agent_id?: string | null }) => request<WorkforceProject>("/api/v1/workforce/projects", { method: "POST", body: JSON.stringify(payload) }),

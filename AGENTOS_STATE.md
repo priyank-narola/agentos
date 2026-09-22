@@ -84,6 +84,15 @@
   update rather than adding a bypass around action governance. This is an
   AgentOS implementation informed by the Paperclip work-collection pattern,
   not an embedded Paperclip runtime or a claim of complete feature parity.
+- Workforce work-item checkpoint: queue cards and rows now open a native
+  `/workforce/projects/[workItemId]` record. It loads a persisted work item
+  through the existing tenant-scoped API, permits planning-field edits through
+  the existing update endpoint, and makes the planning-versus-execution
+  boundary explicit, linking to action evidence only when a governed action
+  request already exists. Browser verification used a fresh temporary,
+  migrated-and-seeded SQLite preview database; the repository Workforce API
+  lifecycle test also passes (`2 passed`). No user database was migrated or
+  altered for this verification.
 
 ## 0. Review Branch and Reporting Correction — 17 September 2026
 
